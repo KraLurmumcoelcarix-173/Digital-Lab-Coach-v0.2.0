@@ -262,3 +262,21 @@ def test_attach_per_row_results_populates_runs_in_place(tmp_path):
     assert len(run.per_row_results) == 2
     assert run.has_per_row_data
     assert run.failing_rows() == []
+
+def test_safe_unlink_retries_then_succeeds(tmp_path):
+    from dlc.testing.runner import _safe_unlink
+    p = tmp_path / "f.dig"
+    p.write_text("x")
+    _safe_unlink(str(p))
+    assert not p.exists()
+
+
+def test_safe_unlink_queues_pending_on_persistent_failure(tmp_path):
+    from unittest.mock import patch
+    from dlc.testing.runner import _safe_unlink, _PENDING_CLEANUP
+    _PENDING_CLEANUP.clear()
+    fake_path = str(tmp_path / "never_unlinkable.dig")
+    with patch("dlc.testing.runner.os.unlink", side_effect=OSError("locked")):
+        _safe_unlink(fake_path)
+    assert fake_path in _PENDING_CLEANUP
+    _PENDING_CLEANUP.clear()
