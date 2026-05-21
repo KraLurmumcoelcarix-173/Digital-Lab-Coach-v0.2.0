@@ -31,6 +31,8 @@ caller can degrade gracefully.
 `<dataString>...</dataString>` block. 
 """
 
+import atexit
+import time
 import os
 import re
 import subprocess
@@ -43,8 +45,30 @@ from dlc.testing.spec import TestSpec
 
 
 _DATASTRING_RE = re.compile(r'(<dataString>).*?(</dataString>)', flags=re.DOTALL)
+_PENDING_CLEANUP: list[str] = []
 
 
+def _safe_unlink(path: str) -> None:
+    """Remove a temp file"""
+    for _ in range(3):
+        try:
+            os.unlink(path)
+            return
+        except OSError:
+            time.sleep(0.05)
+    _PENDING_CLEANUP.append(path)
+
+
+def _cleanup_pending() -> None:
+    for p in list(_PENDING_CLEANUP):
+        try:
+            if os.path.exists(p):
+                os.unlink(p)
+            _PENDING_CLEANUP.remove(p)
+        except OSError:
+            pass
+
+atexit.register(_cleanup_pending)
 
 def find_digital_jar() -> str | None:
     env = os.environ.get("DIGITAL_JAR")
@@ -212,10 +236,7 @@ def per_row_run(
                     status=tc.status, raw_output=output,
                 ))
         finally:
-            try:
-                os.unlink(temp_path)
-            except OSError:
-                pass
+            _safe_unlink(temp_path)
     return results
 
 
