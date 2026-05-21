@@ -29,7 +29,7 @@ uv run pytest tests/test_netlist.py::test_buggy_multi_driver_flags_one_net_with_
 | `tests/test_facts_net_width.py` | F3 Stage 3: per-net width inference + conflicts | 9 |
 | `tests/test_facts_extractor.py` | F3 Stage 4: CircuitFacts bundle | 27 |
 | `tests/test_facts_serialization.py` | F3 Stage 5: `to_dict()` / `to_json()` JSON export | 19 |
-| **Total** | | **165** |
+| **Total** | | **165 basic tests** |
 
 ---
 
@@ -153,6 +153,7 @@ for in_idx, outs in reach.items():
 "
 ```
 
+
 Text dumb visulization: 
 ```python
 uv run python -c "
@@ -176,6 +177,7 @@ for u, v, data in g.edges(data=True):
     print(f'  [{u}] {src_lbl}.{driver_pin} -> [{v}] {dst_lbl}.{sink_pin}  (net {net_id})')
 "
 ```
+
 
 Visulization: 
 ```python
@@ -244,6 +246,21 @@ print('Saved to graph.png')
 
 ### How to test manually
 
+Per net width:
+```python
+uv run python -c "
+from dlc.parser.dig_parser import parse_dig_file
+from dlc.parser.netlist import build_netlist
+from dlc.facts.net_width import infer_net_widths
+c = parse_dig_file('data/sample_circuits/tier3_realistic/tier3_calculator.dig')  # your .dig
+nl = build_netlist(c)
+per_net, conflicts = infer_net_widths(c, nl)
+for nid, info in per_net.items():
+    print(f'  net {nid}: width={info.width} source={info.source}')
+print(f'conflicts: {conflicts}') "
+```
+
+
 Fact extractor:
 ```python
 uv run python -c "
@@ -259,6 +276,7 @@ print('\nComponents (graph view):'); [print(f'  [{c.index}] {c.element_name}({c.
 print('\nBugs:'); [print(f'  [{b.kind}] {b.description}') for b in f.bugs]
 "
 ```
+
 
 Json Bundle:
 ```python

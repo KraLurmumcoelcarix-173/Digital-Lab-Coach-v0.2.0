@@ -7,7 +7,7 @@
 | F1 | `.dig` parser | done |
 | F2 | Circuit netlist + signal-flow graph | done |
 | F3 | Structural fact extractor | done |
-| F4 | Test-result parser | ongoing |
+| F4 | Test-result parser (incl. parsing `Testcase` `<testData><dataString>` content — generic attribute reader currently only grabs the top-level text node, not nested element text) | TBD |
 
 ## Tier 2 — Layer 1 deterministic checkers
 
