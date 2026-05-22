@@ -334,7 +334,39 @@ for spec in extract_test_specs(circuit):
             print(f'    [{row.line_index}] {\" \".join(tokens)}')
 "
 ```
-Per row test:
+
+### Function 4: per-row vs overall — two manual test modes
+
+DLC offers two ways to check a circuit's testcases. Use whichever
+the situation calls for.
+
+#### Mode A — overall pass/fail (fast)
+
+One Digital invocation on the unmodified .dig. Returns the testcase's
+overall pass/fail and (on failure) a percentage.
+
+```python
+uv run python -c "
+from dlc.testing.runner import find_digital_jar, run_digital_cli
+from dlc.testing.results import parse_cli_output
+
+TARGET_DIG = 'data/sample_circuits/tier3_realistic/tier3_calculator.dig'  # your .dig
+
+jar = find_digital_jar()
+code, out = run_digital_cli(TARGET_DIG, jar)
+run = parse_cli_output(out)
+for tc in run.testcases:
+    pct = f' ({tc.fail_pct}%)' if tc.fail_pct is not None else ''
+    print(f'  [{tc.status}] {tc.name}{pct}')
+"
+```
+
+Wallclock: 1–3 seconds total.
+
+#### Mode B — cumulative per-row (precise, N subprocesses)
+
+One Digital invocation per row, with each prefix containing rows 0..K
+so state accumulates correctly. Returns each row's individual pass/fail.
 
 ```python
 uv run python -c "
@@ -342,13 +374,12 @@ from dlc.parser.dig_parser import parse_dig_file
 from dlc.testing.spec import extract_test_specs
 from dlc.testing.runner import per_row_run, find_digital_jar
 
-TARGET_DIG = 'data/sample_circuits/tier3_realistic/register-file.dig'  # your .dig
+TARGET_DIG = 'data/sample_circuits/tier3_realistic/tier3_calculator.dig'  # your .dig
 
 circuit = parse_dig_file(TARGET_DIG)
 spec = extract_test_specs(circuit)[0]
 jar = find_digital_jar()
-print(f'Using Digital.jar: {jar or \"(NOT FOUND — set DIGITAL_JAR or run set_digital_jar_path)\"}')
-print(f'Running {spec.row_count()} rows of testcase \"{spec.name}\"...')
+print(f'Running {spec.row_count()} rows of testcase \"{spec.name}\" cumulatively...')
 per_row = per_row_run(spec, TARGET_DIG, jar_path=jar)
 print()
 print(f'{\"row\":>3}  {\"status\":<6}  row text')
@@ -362,6 +393,17 @@ for r in per_row:
 "
 ```
 
+Wallclock: roughly N × JVM-startup. 
+
+#### When to use which
+
+| Need | Use | Wallclock |
+|---|---|:-:|
+| Combinational circuit, quick check | Mode A | fast |
+| Stateful circuit, debugging a regression | Mode B | slower but correct |
+
+TBD: Eventually the L3 UI will surface this as a checkbox: "Get per-row
+diagnostics (slower)". For now, call the right function directly.
 ---
 
 ## When you add a new test
