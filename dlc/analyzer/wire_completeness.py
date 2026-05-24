@@ -33,6 +33,7 @@ class Issue:
     component_indices: list[int] = field(default_factory=list)
     location: tuple[int, int] | None = None
     suggested_fix: str | None = None
+    net_id: int | None = None
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -113,14 +114,15 @@ def _check_dangling_inputs(
         out.append(Issue(
             kind="dangling_input",
             severity=IssueSeverity.ERROR,
-            title=f"Undriven input pin{plural} on net {bug.net_id}",
+            title=f"Undriven input pin{plural}: {', '.join(descs)}",
             message=(
-                f"Input pin{plural} {', '.join(descs)} on net {bug.net_id} "
-                f"have no wire connecting them. The circuit will produce "
-                f"an undefined value at this point."
+                f"Input pin{plural} {', '.join(descs)} have no wire "
+                f"connecting them. The circuit will produce an undefined "
+                f"value at this point."
             ),
             component_indices=[p["component_index"] for p in pins],
             location=loc,
+            net_id=bug.net_id,
             suggested_fix=(
                 f"Connect a driving output (a gate output, a Const, or "
                 f"an In pin) to {descs[0]}."
@@ -142,14 +144,15 @@ def _check_multi_drivers(circuit: Circuit, facts: CircuitFacts) -> list[Issue]:
         out.append(Issue(
             kind="multi_driver",
             severity=IssueSeverity.ERROR,
-            title=f"Multiple drivers on net {bug.net_id}",
+            title=f"Multiple drivers wired together: {', '.join(descs)}",
             message=(
-                f"Net {bug.net_id} is driven by {len(drivers)} outputs at once: "
-                f"{', '.join(descs)}. Two outputs on the same wire short-circuit "
-                f"the signal; Digital will flag this at run time."
+                f"{len(drivers)} outputs are wired together at the same "
+                f"point: {', '.join(descs)}. Two outputs on the same wire "
+                f"short-circuit; Digital will flag this at run time."
             ),
             component_indices=bug.component_indices,
             location=loc,
+            net_id=bug.net_id,
             suggested_fix=(
                 "Disconnect one of the drivers, or feed them through a "
                 "Multiplexer if you actually need to select between them."
