@@ -1,5 +1,5 @@
 """
-Layer 1 checker
+Layer 1 basic checker
 """
 
 import json
@@ -70,3 +70,50 @@ def test_check_wire_completeness_does_not_crash_on_buggy_sample():
     c = parse_dig_file(str(SAMPLES / "tier1_buggy" / "dangling_input.dig"))
     issues = check_wire_completeness(c)
     assert isinstance(issues, IssueCollection)
+
+def test_dangling_input_check_surfaces_one_issue_on_buggy_sample():
+    c = parse_dig_file(str(SAMPLES / "tier1_buggy" / "dangling_input.dig"))
+    issues = check_wire_completeness(c)
+    dangling = issues.by_kind("dangling_input")
+    assert len(dangling) == 1
+    assert dangling[0].severity == IssueSeverity.ERROR
+    assert "in1" in dangling[0].message
+    assert dangling[0].location is not None
+
+
+def test_multi_driver_check_surfaces_one_issue_on_buggy_sample():
+    c = parse_dig_file(str(SAMPLES / "tier1_buggy" / "multi_driver.dig"))
+    issues = check_wire_completeness(c)
+    multi = issues.by_kind("multi_driver")
+    assert len(multi) == 1
+    assert multi[0].severity == IssueSeverity.ERROR
+
+
+def test_missing_subcircuit_check_uses_inmemory_circuit():
+    from dlc.parser.models import (
+        Circuit, Component, SubcircuitReference, Position,
+    )
+    comp = Component(
+        element_name="bogus.dig", position=Position(0, 0),
+        attributes={}, label=None,
+    )
+    sub_ref = SubcircuitReference(
+        reference="bogus.dig", parent_component=comp,
+        resolved_path=None, child_circuit=None,
+        resolution_error="Referenced file not found: bogus.dig",
+    )
+    c = Circuit(components=[comp], wires=[], subcircuits=[sub_ref])
+    issues = check_wire_completeness(c)
+    missing = issues.by_kind("missing_subcircuit")
+    assert len(missing) == 1
+    assert missing[0].severity == IssueSeverity.ERROR
+    assert "bogus.dig" in missing[0].message
+
+
+def test_clean_tier1_minimal_produces_no_stage2_issues():
+    import glob
+    for f in glob.glob("data/sample_circuits/tier1_minimal/*.dig"):
+        c = parse_dig_file(f)
+        issues = check_wire_completeness(c)
+        for kind in ("dangling_input", "multi_driver", "missing_subcircuit"):
+            assert not issues.by_kind(kind), f"{f}: unexpected {kind}"
