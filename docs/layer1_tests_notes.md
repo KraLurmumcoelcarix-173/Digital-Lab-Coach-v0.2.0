@@ -65,24 +65,6 @@ An `IssueCollection` of `Issue` records. Each `Issue` carries:
 
 ### How to test manually
 
-```bash
-uv run python -c "
-from dlc.parser.dig_parser import parse_dig_file
-from dlc.analyzer.wire_completeness import check_wire_completeness
-TARGET = 'data/sample_circuits/tier1_buggy/isolated_component.dig'  # your .dig
-issues = check_wire_completeness(parse_dig_file(TARGET))
-print(issues.summary())
-for i in issues.issues:
-    print(f'  [{i.severity.value}] {i.title}')
-    print(f'    {i.message}')
-    if i.suggested_fix:
-        print(f'    fix: {i.suggested_fix}')
-    if i.location:
-        print(f'    @ {i.location}')
-    print(f'    components: {i.component_indices}  net_id: {i.net_id}')
-"
-```
-
 JSON dump (the shape the L3 prompt builder will consume):
 
 ```bash
@@ -126,22 +108,6 @@ Two Issue kinds:
 - `width_conflict` 
 - `width_mismatch`
 
-### How to test manually
-
-```bash
-uv run python -c "
-from dlc.parser.dig_parser import parse_dig_file
-from dlc.analyzer.bit_widths import check_bit_widths
-TARGET = 'data/sample_circuits/tier1_buggy/width_mismatch.dig'  # your .dig
-issues = check_bit_widths(parse_dig_file(TARGET))
-print(issues.summary())
-for i in issues.issues:
-    print(f'  [{i.severity.value}] {i.title}')
-    print(f'    {i.message}')
-    print(f'    fix: {i.suggested_fix}')
-"
-```
-
 ### Expected output
 
 - `tier1_buggy/width_mismatch.dig`: at least 1 `width_mismatch` issue (error).
@@ -155,22 +121,6 @@ One Issue kind:
 - `combinational_loop` — a cycle in the signal-flow graph that contains
   no clocked element and no subcircuit instance whose child contains
   one.
-
-### How to test manually
-
-```bash
-uv run python -c "
-from dlc.parser.dig_parser import parse_dig_file
-from dlc.analyzer.combinational_loops import check_combinational_loops
-TARGET = 'data/sample_circuits/tier1_buggy/combinational_loop.dig'
-issues = check_combinational_loops(parse_dig_file(TARGET))
-print(issues.summary())
-for i in issues.issues:
-    print(f'  [{i.severity.value}] {i.title}')
-    print(f'    {i.message}')
-    print(f'    fix: {i.suggested_fix}')
-"
-```
 
 ### Expected output
 
