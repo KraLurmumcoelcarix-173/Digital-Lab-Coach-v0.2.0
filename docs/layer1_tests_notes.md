@@ -37,9 +37,33 @@ for i in check_all_l1_deep(parse_dig_file(TARGET)).issues:
 "
 ```
 
-This runs F5 + F6 + F7 + F8 + F9 bug collectors in one pass with netlist/facts built
-once. Useful as a single-shot health check.
+This runs F5 + F6 + F7 + F8 + F9 bug collectors in one pass for a single .dig file 
+with netlist/facts built once. Useful as a single-shot health check.
 
+
+### tier1 + tier 2 bug collector check
+
+```bash
+uv run python -c "
+import glob, os
+from dlc.parser.dig_parser import parse_dig_file
+from dlc.analyzer import check_all_l1_deep
+
+for tier in ('tier1_buggy', 'tier2_buggy'):
+    print(f'=== {tier} ===')
+    for f in sorted(glob.glob(f'data/sample_circuits/{tier}/**/*.dig', recursive=True)):
+        issues = check_all_l1_deep(parse_dig_file(f))
+        name = os.path.relpath(f, f'data/sample_circuits/{tier}')
+        marker = 'clean' if not issues.issues else f'{len(issues.issues)} issue(s)'
+        print(f'  {name:45s} {marker}')
+        for i in issues.issues:
+            print(f'      [{i.severity.value}] {i.kind}: {i.title}')
+            print(f'        {i.message}')
+            if i.suggested_fix:
+                print(f'        fix: {i.suggested_fix}')
+    print()
+"
+```
 
 ## Function 5 — Wire-completeness checker
 
