@@ -52,3 +52,24 @@ def check_all_l1_deep(circuit, _chain=None):
         )
         out.extend(child_issues)
     return out
+
+def check_all_l1_muted(
+    circuit,
+    all_tests_passed: bool,
+    threshold: int = 3,
+):
+    issues = check_all_l1(circuit)
+    if all_tests_passed and len(issues.issues) <= threshold:
+        return IssueCollection()
+    return issues
+
+
+def check_all_l1_deep_muted(
+    circuit,
+    all_tests_passed: bool,
+    threshold: int = 3,
+):
+    issues = check_all_l1_deep(circuit)
+    if all_tests_passed and len(issues.issues) <= threshold:
+        return IssueCollection()
+    return issues
