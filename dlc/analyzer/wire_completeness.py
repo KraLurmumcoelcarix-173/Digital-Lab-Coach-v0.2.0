@@ -161,31 +161,52 @@ def _check_multi_drivers(circuit: Circuit, facts: CircuitFacts) -> list[Issue]:
     return out
 
 
-def _check_missing_subcircuit(circuit: Circuit, facts: CircuitFacts) -> list[Issue]:
+def _check_missing_subcircuit(
+    circuit: Circuit, facts: CircuitFacts
+) -> list[Issue]:
     out: list[Issue] = []
     for bug in facts.bugs:
         if bug.kind != "missing_subcircuit":
             continue
         ref = bug.detail.get("reference", "<unknown>")
         err = bug.detail.get("resolution_error", "")
+        chain = bug.detail.get("parent_chain", []) or []
         loc = None
         if bug.component_indices:
             anchor = circuit.components[bug.component_indices[0]].position
             loc = (anchor.x, anchor.y)
+        if chain:
+            chain_path = " -> ".join(chain) + " -> " + ref
+            title = f"Nested subcircuit file not found: {ref}"
+            message = (
+                f"Your top-level circuit references '{chain[0]}', which "
+                f"resolves fine, but its dependency chain leads to '{ref}' "
+                f"and that file is missing. Full path: {chain_path}."
+            )
+            fix = (
+                f"Find '{ref}' and place it next to '{chain[-1]}'. The "
+                f"intermediate file '{chain[0]}' is present; only '{ref}' "
+                f"is missing."
+            )
+        else:
+            title = f"Subcircuit file not found: {ref}"
+            message = (
+                f"This circuit references '{ref}' but the file could not "
+                f"be resolved. {err}"
+            )
+            fix = (
+                f"Verify '{ref}' exists in the same folder as the parent "
+                f".dig, and that the filename matches exactly "
+                f"(case-sensitive on macOS/Linux)."
+            )
         out.append(Issue(
             kind="missing_subcircuit",
             severity=IssueSeverity.ERROR,
-            title=f"Subcircuit file not found: {ref}",
-            message=(
-                f"This circuit references '{ref}' but the file could not be "
-                f"resolved. {err}"
-            ),
+            title=title,
+            message=message,
             component_indices=bug.component_indices,
             location=loc,
-            suggested_fix=(
-                f"Verify '{ref}' exists in the same folder as the parent .dig, "
-                f"and that the filename matches exactly (case-sensitive on macOS/Linux)."
-            ),
+            suggested_fix=fix,
         ))
     return out
 

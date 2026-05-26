@@ -469,21 +469,7 @@ def _collect_bugs(
             detail={"cycle_order": list(cyc)},
         ))
 
-    for sub_ref in circuit.subcircuits:
-        if sub_ref.child_circuit is None and sub_ref.resolution_error:
-            inst_idx = _subcircuit_instance_index(circuit, sub_ref)
-            bugs.append(BugFact(
-                kind="missing_subcircuit",
-                description=(
-                    f"Subcircuit '{sub_ref.reference}' could not be resolved: "
-                    f"{sub_ref.resolution_error}"
-                ),
-                component_indices=[inst_idx] if inst_idx >= 0 else [],
-                detail={
-                    "reference": sub_ref.reference,
-                    "resolution_error": sub_ref.resolution_error,
-                },
-            ))
+    _collect_missing_subcircuits_recursive(circuit, bugs, chain=[])
 
     return bugs
 
