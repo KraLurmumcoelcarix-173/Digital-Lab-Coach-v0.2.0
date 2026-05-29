@@ -120,6 +120,7 @@ def to_cytoscape(circuit: Circuit, netlist: NetList, graph) -> dict:
         })
         edge_id += 1
 
+    return {"nodes": nodes, "edges": edges}
 
 def circuit_summary(circuit: Circuit, netlist: NetList) -> dict:
     """

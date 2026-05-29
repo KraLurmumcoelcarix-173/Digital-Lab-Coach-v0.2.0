@@ -201,6 +201,13 @@ function renderCurrent() {
     summaryEl.innerHTML = `<span style="color:#991b1b">Parse error.</span>`;
     return;
   }
+  if (!f.graph || !f.summary) {
+    placeholder.classList.remove("hidden");
+    placeholder.innerHTML = `<span style="color:#991b1b">${escapeHtml(f.filename)}: server returned an empty payload (graph or summary missing). Check the server log.</span>`;
+    if (cy) { cy.destroy(); cy = null; }
+    summaryEl.innerHTML = `<span style="color:#991b1b">Empty payload.</span>`;
+    return;
+  }
 
   renderGraph(f.graph);
   renderSummary(f.summary);
