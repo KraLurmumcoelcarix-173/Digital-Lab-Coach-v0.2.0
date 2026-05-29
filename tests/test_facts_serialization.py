@@ -76,7 +76,7 @@ def test_to_dict_subcircuit_hierarchy_round_trips():
 
 
 def test_to_dict_bug_list_preserves_kind_and_detail():
-    f = _facts("tier1_buggy/dangling_input.dig")
+    f = _facts("tier1_bug/dangling_input.dig")
     d = f.to_dict()
     kinds = [b["kind"] for b in d["bugs"]]
     assert "dangling_input" in kinds
@@ -101,8 +101,8 @@ def test_to_json_indented_form_has_newlines():
     assert "  " in s
 
 
-def test_to_json_preserves_bug_count_in_buggy_circuit():
-    f = _facts("tier1_buggy/multi_driver.dig")
+def test_to_json_preserves_bug_count_in_bug_circuit():
+    f = _facts("tier1_bug/multi_driver.dig")
     parsed = json.loads(f.to_json())
     assert parsed["header"]["bug_count"] >= 1
     assert any(b["kind"] == "multi_driver" for b in parsed["bugs"])
@@ -142,7 +142,7 @@ def test_comparator_bits_attribute_survives_as_int():
 
 def test_none_fields_serialize_as_json_null():
     """A circuit's missing labels (Out without Label) round-trip as null."""
-    f = _facts("tier1_buggy/combinational_loop.dig")
+    f = _facts("tier1_bug/combinational_loop.dig")
     parsed = json.loads(f.to_json())
     null_labels = [c for c in parsed["components"] if c["label"] is None]
     assert len(null_labels) >= 1

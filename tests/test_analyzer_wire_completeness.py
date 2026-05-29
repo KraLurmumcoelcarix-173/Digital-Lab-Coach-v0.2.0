@@ -67,13 +67,13 @@ def test_check_wire_completeness_returns_empty_collection_on_clean_circuit():
     assert issues.issues == []
 
 
-def test_check_wire_completeness_does_not_crash_on_buggy_sample():
-    c = parse_dig_file(str(SAMPLES / "tier1_buggy" / "dangling_input.dig"))
+def test_check_wire_completeness_does_not_crash_on_bug_sample():
+    c = parse_dig_file(str(SAMPLES / "tier1_bug" / "dangling_input.dig"))
     issues = check_wire_completeness(c)
     assert isinstance(issues, IssueCollection)
 
-def test_dangling_input_check_surfaces_one_issue_on_buggy_sample():
-    c = parse_dig_file(str(SAMPLES / "tier1_buggy" / "dangling_input.dig"))
+def test_dangling_input_check_surfaces_one_issue_on_bug_sample():
+    c = parse_dig_file(str(SAMPLES / "tier1_bug" / "dangling_input.dig"))
     issues = check_wire_completeness(c)
     dangling = issues.by_kind("dangling_input")
     assert len(dangling) == 1
@@ -82,8 +82,8 @@ def test_dangling_input_check_surfaces_one_issue_on_buggy_sample():
     assert dangling[0].location is not None
 
 
-def test_multi_driver_check_surfaces_one_issue_on_buggy_sample():
-    c = parse_dig_file(str(SAMPLES / "tier1_buggy" / "multi_driver.dig"))
+def test_multi_driver_check_surfaces_one_issue_on_bug_sample():
+    c = parse_dig_file(str(SAMPLES / "tier1_bug" / "multi_driver.dig"))
     issues = check_wire_completeness(c)
     multi = issues.by_kind("multi_driver")
     assert len(multi) == 1
@@ -120,7 +120,7 @@ def test_clean_tier1_minimal_produces_no_stage2_issues():
             assert not issues.by_kind(kind), f"{f}: unexpected {kind}"
 
 def test_unused_top_output_surfaces_one_issue_not_dangling():
-    c = parse_dig_file(str(SAMPLES / "tier1_buggy" / "unused_top_output.dig"))
+    c = parse_dig_file(str(SAMPLES / "tier1_bug" / "unused_top_output.dig"))
     issues = check_wire_completeness(c)
     unused = issues.by_kind("unused_top_output")
     assert len(unused) == 1
@@ -131,7 +131,7 @@ def test_unused_top_output_surfaces_one_issue_not_dangling():
 
 
 def test_isolated_component_surfaces_one_issue_not_dangling():
-    c = parse_dig_file(str(SAMPLES / "tier1_buggy" / "isolated_component.dig"))
+    c = parse_dig_file(str(SAMPLES / "tier1_bug" / "isolated_component.dig"))
     issues = check_wire_completeness(c)
     iso = issues.by_kind("isolated_component")
     assert len(iso) == 1
@@ -141,7 +141,7 @@ def test_isolated_component_surfaces_one_issue_not_dangling():
 
 
 def test_empty_tunnel_surfaces_only_lonely_tunnel_not_wired_one():
-    c = parse_dig_file(str(SAMPLES / "tier1_buggy" / "empty_tunnel.dig"))
+    c = parse_dig_file(str(SAMPLES / "tier1_bug" / "empty_tunnel.dig"))
     issues = check_wire_completeness(c)
     empty = issues.by_kind("empty_tunnel")
     assert len(empty) == 1
@@ -158,7 +158,7 @@ def test_clean_tier1_minimal_produces_no_stage3_issues():
             assert not issues.by_kind(kind), f"{f}: unexpected {kind}"
 
 def test_dangling_input_issue_carries_net_id_for_llm_consumption():
-    c = parse_dig_file(str(SAMPLES / "tier1_buggy" / "dangling_input.dig"))
+    c = parse_dig_file(str(SAMPLES / "tier1_bug" / "dangling_input.dig"))
     dangling = check_wire_completeness(c).by_kind("dangling_input")
     assert dangling and dangling[0].net_id is not None
 
@@ -166,7 +166,7 @@ def test_dangling_input_issue_carries_net_id_for_llm_consumption():
 
 def test_missing_top_subcircuit_real_fixture():
     c = parse_dig_file(
-        str(SAMPLES / "tier2_buggy" / "missing_top_subcircuit.dig")
+        str(SAMPLES / "tier2_bug" / "missing_top_subcircuit.dig")
     )
     issues = check_wire_completeness(c)
     missing = issues.by_kind("missing_subcircuit")
@@ -177,7 +177,7 @@ def test_missing_top_subcircuit_real_fixture():
 
 def test_missing_nested_subcircuit_real_fixture():
     c = parse_dig_file(
-        str(SAMPLES / "tier2_buggy" / "missing_nested_subcircuit.dig")
+        str(SAMPLES / "tier2_bug" / "missing_nested_subcircuit.dig")
     )
     issues = check_wire_completeness(c)
     missing = issues.by_kind("missing_subcircuit")

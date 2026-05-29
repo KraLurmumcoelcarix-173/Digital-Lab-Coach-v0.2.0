@@ -145,14 +145,14 @@ def test_net_facts_pin_dicts_have_pin_width_field():
 
 
 def test_net_anomaly_tag_for_dangling_input():
-    c, f = _facts("tier1_buggy/dangling_input.dig")
+    c, f = _facts("tier1_bug/dangling_input.dig")
     flagged = [n for n in f.nets if "dangling_input" in n.anomalies]
     assert len(flagged) == 1
     assert "undriven" in flagged[0].anomalies
 
 
 def test_net_anomaly_tag_for_multi_driver():
-    c, f = _facts("tier1_buggy/multi_driver.dig")
+    c, f = _facts("tier1_bug/multi_driver.dig")
     flagged = [n for n in f.nets if "multi_driver" in n.anomalies]
     assert len(flagged) == 1
 
@@ -192,14 +192,14 @@ def test_no_bugs_for_clean_tier3_calculator():
 
 
 def test_width_mismatch_not_reported_at_f3_level():
-    c, f = _facts("tier1_buggy/width_mismatch.dig")
+    c, f = _facts("tier1_bug/width_mismatch.dig")
     assert f.bugs == []
 
 
-# Bug list — buggy circuits
+# Bug list — bug circuits
 
 def test_dangling_input_appears_in_bug_list():
-    c, f = _facts("tier1_buggy/dangling_input.dig")
+    c, f = _facts("tier1_bug/dangling_input.dig")
     dangling = [b for b in f.bugs if b.kind == "dangling_input"]
     assert len(dangling) == 1
     bug = dangling[0]
@@ -211,7 +211,7 @@ def test_dangling_input_appears_in_bug_list():
 
 
 def test_multi_driver_appears_in_bug_list():
-    c, f = _facts("tier1_buggy/multi_driver.dig")
+    c, f = _facts("tier1_bug/multi_driver.dig")
     multi = [b for b in f.bugs if b.kind == "multi_driver"]
     assert len(multi) == 1
     assert len(multi[0].detail["drivers"]) >= 2
@@ -219,7 +219,7 @@ def test_multi_driver_appears_in_bug_list():
 
 
 def test_combinational_cycle_appears_in_bug_list():
-    c, f = _facts("tier1_buggy/combinational_loop.dig")
+    c, f = _facts("tier1_bug/combinational_loop.dig")
     cycles = [b for b in f.bugs if b.kind == "combinational_cycle"]
     assert len(cycles) >= 1
     cyc_order = cycles[0].detail["cycle_order"]

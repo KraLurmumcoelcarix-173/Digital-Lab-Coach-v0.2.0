@@ -9,7 +9,7 @@ from dlc.parser.dig_parser import parse_dig_file
 from dlc.parser.netlist import build_netlist, NetList
 
 SAMPLES_DIR = Path(__file__).parent.parent / "data" / "sample_circuits" / "tier1_minimal"
-BUGGY_DIR  = Path(__file__).parent.parent / "data" / "sample_circuits" / "tier1_buggy"
+BUG_DIR  = Path(__file__).parent.parent / "data" / "sample_circuits" / "tier1_bug"
 TIER2_DIR  = Path(__file__).parent.parent / "data" / "sample_circuits" / "tier2_structured"
 
 
@@ -109,14 +109,14 @@ def test_tunnel_unifies_nets_across_gap():
     assert len(net1_nets) == 1
 
 
-# Tier-1 buggy: each bug surfaces a distinct signature
+# Tier-1 bug: each bug surfaces a distinct signature
 
-def test_buggy_dangling_input_flags_one_undriven_singleton():
+def test_bug_dangling_input_flags_one_undriven_singleton():
     """
     dangling_input.dig: AND.in1 has no wire. Expect exactly one net
     with a single sink pin and no driver — that's the dangling input.
     """
-    c = parse_dig_file(str(BUGGY_DIR / "dangling_input.dig"))
+    c = parse_dig_file(str(BUG_DIR / "dangling_input.dig"))
     nl = build_netlist(c)
     undriven_with_only_sinks = [
         n for n in nl.nets
@@ -128,9 +128,9 @@ def test_buggy_dangling_input_flags_one_undriven_singleton():
     assert pin.pin_name == "in1"
 
 
-def test_buggy_multi_driver_flags_one_net_with_two_drivers():
+def test_bug_multi_driver_flags_one_net_with_two_drivers():
     """multi_driver.dig: In(A) and In(B) merged before AND.in0."""
-    c = parse_dig_file(str(BUGGY_DIR / "multi_driver.dig"))
+    c = parse_dig_file(str(BUG_DIR / "multi_driver.dig"))
     nl = build_netlist(c)
     multi = [n for n in nl.nets if len(n.drivers()) > 1]
     assert len(multi) == 1
@@ -139,23 +139,23 @@ def test_buggy_multi_driver_flags_one_net_with_two_drivers():
     assert all(d.element_name == "In" for d in drivers)
 
 
-def test_buggy_combinational_loop_keeps_signal_path():
+def test_bug_combinational_loop_keeps_signal_path():
     """
     combinational_loop.dig: two NOTs forming a ring + driver. The
     netlist itself doesn't reject the loop (that's a graph-layer
     detection job); F2 just guarantees the build succeeds.
     """
-    c = parse_dig_file(str(BUGGY_DIR / "combinational_loop.dig"))
+    c = parse_dig_file(str(BUG_DIR / "combinational_loop.dig"))
     nl = build_netlist(c)
     assert len(nl.nets) > 0
 
 
-def test_buggy_width_mismatch_netlist_is_structurally_clean():
+def test_bug_width_mismatch_netlist_is_structurally_clean():
     """
     width_mismatch.dig: 4-bit bus feeds 1-bit AND input. Parser doesn't
     track widths, it should produce a clean netlist.
     """
-    c = parse_dig_file(str(BUGGY_DIR / "width_mismatch.dig"))
+    c = parse_dig_file(str(BUG_DIR / "width_mismatch.dig"))
     nl = build_netlist(c)
     n_undriven = sum(1 for n in nl.nets if n.pins and not n.drivers())
     n_multi = sum(1 for n in nl.nets if len(n.drivers()) > 1)

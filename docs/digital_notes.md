@@ -137,7 +137,7 @@ Dangling **outputs** are dropped from the netlist (they're not errors — just u
 | **Wrong op-encoding**  | ✗ | ✓ |
 | **Routing accident through unrelated pin coord** | ✓ catches (multi-driver) but cannot explain | ✓ explains |
 
-The ablation contrast (Layer 1 alone vs Layer 1+3 vs Layer 3 alone) is the project's central evaluation. The 30 buggy benchmark is split across all three columns.
+The ablation contrast (Layer 1 alone vs Layer 1+3 vs Layer 3 alone) is the project's central evaluation. The 30 bug benchmark is split across all three columns.
 
 ## Digital UI Features Relevant to Students
 

@@ -13,7 +13,7 @@ uv run pytest                              # Run all tests
 uv run pytest -v                           # Show each test name
 uv run pytest tests/test_netlist.py        # Run the test in one test file
 uv run pytest -k subcircuit                # Name-match filter
-uv run pytest tests/test_netlist.py::test_buggy_multi_driver_flags_one_net_with_two_drivers
+uv run pytest tests/test_netlist.py::test_bug_multi_driver_flags_one_net_with_two_drivers
                                            # Run one specific test
 ```
 ---
@@ -256,7 +256,7 @@ Fact extractor:
 uv run python -c "
 from dlc.parser.dig_parser import parse_dig_file
 from dlc.facts.extractor import extract_facts
-c = parse_dig_file('data/sample_circuits/tier1_buggy/unused_top_output.dig') # your .dig
+c = parse_dig_file('data/sample_circuits/tier1_bug/unused_top_output.dig') # your .dig
 f = extract_facts(c)
 print(f.header); print()
 print('I/O:'); [print(f'  {io.direction.upper()} {io.label} {io.bit_width}-bit @ {io.position}') for io in f.inputs + f.outputs]

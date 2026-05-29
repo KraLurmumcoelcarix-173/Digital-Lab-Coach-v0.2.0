@@ -10,8 +10,8 @@ from dlc.analyzer.wire_completeness import IssueSeverity
 SAMPLES = Path(__file__).parent.parent / "data" / "sample_circuits"
 
 
-def test_width_mismatch_buggy_sample_surfaces_issue():
-    c = parse_dig_file(str(SAMPLES / "tier1_buggy" / "width_mismatch.dig"))
+def test_width_mismatch_bug_sample_surfaces_issue():
+    c = parse_dig_file(str(SAMPLES / "tier1_bug" / "width_mismatch.dig"))
     issues = check_bit_widths(c)
     rel = issues.by_kind("width_mismatch") + issues.by_kind("width_conflict")
     assert len(rel) >= 1
@@ -34,7 +34,7 @@ def test_clean_tier3_realistic_produces_no_width_issues():
 
 def test_run_all_l1_aggregator_includes_width_issues():
     from dlc.analyzer import check_all_l1
-    c = parse_dig_file(str(SAMPLES / "tier1_buggy" / "width_mismatch.dig"))
+    c = parse_dig_file(str(SAMPLES / "tier1_bug" / "width_mismatch.dig"))
     issues = check_all_l1(c)
     rel = issues.by_kind("width_mismatch") + issues.by_kind("width_conflict")
     assert len(rel) >= 1

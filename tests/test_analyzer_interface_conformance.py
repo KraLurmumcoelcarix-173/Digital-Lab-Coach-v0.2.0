@@ -12,7 +12,7 @@ SAMPLES = Path(__file__).parent.parent / "data" / "sample_circuits"
 
 def test_dangling_subcircuit_input_fixture():
     c = parse_dig_file(
-        str(SAMPLES / "tier2_buggy" / "dangling_subcircuit_input.dig")
+        str(SAMPLES / "tier2_bug" / "dangling_subcircuit_input.dig")
     )
     issues = check_interface_conformance(c)
     found = issues.by_kind("dangling_subcircuit_input")

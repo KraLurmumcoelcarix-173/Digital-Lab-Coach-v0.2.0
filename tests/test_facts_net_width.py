@@ -64,9 +64,9 @@ def test_tier3_subcircuit_result_pin_width_resolved_from_child():
     assert found, "bool_unit.Result pin not found in any net"
 
 
-def test_buggy_multi_driver_same_width_no_conflict():
+def test_bug_multi_driver_same_width_no_conflict():
     """multi_driver.dig: two 1-bit Ins on one net."""
-    c, nl = _load_netlist("tier1_buggy/multi_driver.dig")
+    c, nl = _load_netlist("tier1_bug/multi_driver.dig")
     _, conflicts = infer_net_widths(c, nl)
     assert conflicts == []
 
@@ -74,7 +74,7 @@ def test_buggy_multi_driver_same_width_no_conflict():
 def test_dangling_input_inherits_sink_width():
     """dangling_input.dig: AND.in1 is undriven. The dangling net should
     still report width=1 via the sink and tag source='sink'."""
-    c, nl = _load_netlist("tier1_buggy/dangling_input.dig")
+    c, nl = _load_netlist("tier1_bug/dangling_input.dig")
     per_net, _ = infer_net_widths(c, nl)
     dangling = [net for net in nl.nets if net.pins and not net.drivers()]
     assert len(dangling) >= 1

@@ -49,7 +49,7 @@ import glob, os
 from dlc.parser.dig_parser import parse_dig_file
 from dlc.analyzer import check_all_l1_deep
 
-for tier in ('tier1_buggy', 'tier2_buggy'):
+for tier in ('tier1_bug', 'tier2_bug'):
     print(f'=== {tier} ===')
     for f in sorted(glob.glob(f'data/sample_circuits/{tier}/**/*.dig', recursive=True)):
         issues = check_all_l1_deep(parse_dig_file(f))
@@ -97,12 +97,12 @@ uv run python -c "
 from dlc.parser.dig_parser import parse_dig_file
 from dlc.analyzer.wire_completeness import check_wire_completeness
 print(check_wire_completeness(parse_dig_file(
-    'data/sample_circuits/tier1_buggy/dangling_input.dig'  # your .dig file
+    'data/sample_circuits/tier1_bug/dangling_input.dig'  # your .dig file
 )).to_json(indent=2))
 "
 ```
 
-### Expected output on each tier1_buggy sample
+### Expected output on each tier1_bug sample
 
 | Sample | Expected Issue kind | Severity | Count |
 |---|---|:-:|:-:|
@@ -116,7 +116,7 @@ print(check_wire_completeness(parse_dig_file(
 
 | Test | If it fails... |
 |---|---|
-| `test_dangling_input_check_surfaces_one_issue_on_buggy_sample` | F5 stopped wrapping F3's dangling_input BugFact |
+| `test_dangling_input_check_surfaces_one_issue_on_bug_sample` | F5 stopped wrapping F3's dangling_input BugFact |
 | `test_missing_subcircuit_check_uses_inmemory_circuit` | The missing-subcircuit path broke (A.3 will add a real fixture) |
 | `test_unused_top_output_surfaces_one_issue_not_dangling` | Out-pin disambiguation regressed; Y_unused leaking as dangling_input |
 | `test_isolated_component_surfaces_one_issue_not_dangling` | Orphan AND's singleton pins leaking as dangling_input |
@@ -135,8 +135,8 @@ Two Issue kinds:
 
 ### Expected output
 
-- `tier1_buggy/width_mismatch.dig`: at least 1 `width_mismatch` issue (error).
-- `tier1_buggy/width_conflict.dig`: at least 1 `width_conflict` issue (error).
+- `tier1_bug/width_mismatch.dig`: at least 1 `width_mismatch` issue (error).
+- `tier1_bug/width_conflict.dig`: at least 1 `width_conflict` issue (error).
 
 ## Function 7 — Combinational-loop checker
 
@@ -149,7 +149,7 @@ One Issue kind:
 
 ### Expected output
 
-- `tier1_buggy/combinational_loop.dig`: at least 1 `combinational_loop` error.
+- `tier1_bug/combinational_loop.dig`: at least 1 `combinational_loop` error.
 
 ## Function 8 — Subcircuit-interface conformance
 
@@ -161,7 +161,7 @@ One Issue kind:
 
 ### Expected output
 
-- `tier2_buggy/dangling_subcircuit_input.dig`: 1 `dangling_subcircuit_input` error
+- `tier2_bug/dangling_subcircuit_input.dig`: 1 `dangling_subcircuit_input` error
 
 ## Function 9 — Sequential/timing checker
 

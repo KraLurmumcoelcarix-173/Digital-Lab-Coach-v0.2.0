@@ -10,8 +10,8 @@ from dlc.analyzer.wire_completeness import IssueSeverity
 SAMPLES = Path(__file__).parent.parent / "data" / "sample_circuits"
 
 
-def test_combinational_loop_buggy_sample_surfaces_issue():
-    c = parse_dig_file(str(SAMPLES / "tier1_buggy" / "combinational_loop.dig"))
+def test_combinational_loop_bug_sample_surfaces_issue():
+    c = parse_dig_file(str(SAMPLES / "tier1_bug" / "combinational_loop.dig"))
     issues = check_combinational_loops(c)
     loops = issues.by_kind("combinational_loop")
     assert len(loops) >= 1
@@ -30,6 +30,6 @@ def test_clean_tier_samples_produce_no_loop_issues():
 
 def test_run_all_l1_aggregator_includes_combinational_loop_kind():
     from dlc.analyzer import check_all_l1
-    c = parse_dig_file(str(SAMPLES / "tier1_buggy" / "combinational_loop.dig"))
+    c = parse_dig_file(str(SAMPLES / "tier1_bug" / "combinational_loop.dig"))
     issues = check_all_l1(c)
     assert len(issues.by_kind("combinational_loop")) >= 1
