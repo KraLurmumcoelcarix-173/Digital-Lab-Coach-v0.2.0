@@ -6,6 +6,7 @@ Cytoscape.js consumes for rendering.
 
 from dlc.parser.models import Circuit
 from dlc.parser.netlist import NetList
+from dlc.facts.width import pin_width
 
 
 _FAMILY_BY_ELEMENT: dict[str, str] = {
@@ -103,19 +104,21 @@ def to_cytoscape(circuit: Circuit, netlist: NetList, graph) -> dict:
     edges = []
     edge_id = 0
     for u, v, data in graph.edges(data=True):
+        driver_comp = circuit.components[u]
+        driver_pin = data.get("driver_pin")
+        bits = pin_width(driver_comp, driver_pin) if driver_pin else None
         edges.append({
             "data": {
                 "id": f"e{edge_id}",
                 "source": str(u),
                 "target": str(v),
                 "net_id": data.get("net_id"),
-                "driver_pin": data.get("driver_pin"),
+                "driver_pin": driver_pin,
                 "sink_pin": data.get("sink_pin"),
+                "bits": bits,
             },
         })
         edge_id += 1
-
-    return {"nodes": nodes, "edges": edges}
 
 
 def circuit_summary(circuit: Circuit, netlist: NetList) -> dict:
