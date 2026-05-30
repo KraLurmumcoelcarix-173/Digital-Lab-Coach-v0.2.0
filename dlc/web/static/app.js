@@ -111,11 +111,10 @@ function logEvent(kind, details = {}) {
 }
 window.dlcEventLog = eventLog;
 
-// Mute-if-passing state
 const MUTE_THRESHOLD = 3;
-let testsPassed = null;        
-let mutedByUser = new Set();  
+let mutedByUser = new Set();   
 let activeIssueIdx = null;     
+const testState = {};  
 
 //Session state 
 let fileObjects = [];  
@@ -162,7 +161,7 @@ function resetDashboard() {
   mutedByUser = new Set();
   activeIssueIdx = null;
   sessionId = null;
-  testsPassed = null;
+  for (const k of Object.keys(testState)) delete testState[k];
   if (cy) { cy.destroy(); cy = null; }
   fileSelect.innerHTML = "<option>(no file)</option>";
   fileSelect.disabled = true;
@@ -499,19 +498,13 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
-function updateTestsStatus() {
-  if (testsPassed === true) {
-    testsStatusEl.textContent = "Tests: all passed";
-    testsStatusEl.className = "tests-status passed";
-  } else if (testsPassed === false) {
-    testsStatusEl.textContent = "Tests: failures detected";
-    testsStatusEl.className = "tests-status failed";
-  } else {
-    testsStatusEl.textContent = "Tests: not yet run (test runner integration pending)";
-    testsStatusEl.className = "tests-status muted";
-  }
+function getFileTestsPassed(filename) {
+  const st = testState[filename];
+  if (!st || st.status !== "done" || !st.payload) return null;
+  if (st.payload.all_passed === true)  return true;
+  if (st.payload.all_passed === false) return false;
+  return null;
 }
-updateTestsStatus();
 
 function countsBadge(issues) {
   if (!issues || issues.length === 0) {
@@ -542,9 +535,10 @@ function renderIssues(file) {
       `<div class="muted-banner" style="cursor:default">No Layer 1 issues detected.</div>`;
     return;
   }
+  const fileTestsPassed = getFileTestsPassed(file.filename);
   const shouldMute =
     muteToggle.checked
-    && testsPassed === true
+    && fileTestsPassed === true
     && issues.length <= MUTE_THRESHOLD
     && !mutedByUser.has(currentIdx);
   if (shouldMute) {
@@ -624,9 +618,23 @@ function clearIssueHighlight() {
   activeIssueIdx = null;
 }
 
+// Tests panel 
+
+function setTestSlot(filename, patch) {
+  const prev = testState[filename] || { status: "idle", progress: "", payload: null, mode: null, jobId: null, message: null };
+  testState[filename] = { ...prev, ...patch };
+  if (loaded[currentIdx] && loaded[currentIdx].filename === filename) {
+    renderTestsForFile(loaded[currentIdx]);
+    if (testState[filename].status === "done") {
+      renderIssues(loaded[currentIdx]);
+    }
+  }
+}
+
 function renderTestsForFile(file) {
   testsResultsEl.innerHTML = "";
   testsResultsEl.classList.add("empty");
+
   const hasTests = !!(file.summary && file.summary.has_testcases);
   if (!hasTests) {
     runTestsBtn.disabled = true;
@@ -634,111 +642,154 @@ function renderTestsForFile(file) {
     runTestsBtn.textContent = "Run tests";
     testsStatusEl.textContent = "No test data found in this file.";
     testsStatusEl.className = "tests-status muted";
+    hideProgress();
     return;
   }
+
+  const slot = testState[file.filename];
+
+  if (!slot || slot.status === "idle") {
+    runTestsBtn.disabled = false;
+    runTestsBtn.classList.remove("running");
+    runTestsBtn.textContent = "Run tests";
+    testsStatusEl.textContent =
+      `Ready: ${file.summary.testcase_count} testcase${file.summary.testcase_count === 1 ? "" : "s"} found. Click "Run tests" to execute.`;
+    testsStatusEl.className = "tests-status muted";
+    hideProgress();
+    return;
+  }
+
+  if (slot.status === "running") {
+    runTestsBtn.disabled = true;
+    runTestsBtn.classList.add("running");
+    runTestsBtn.textContent = "Running...";
+    testsStatusEl.textContent =
+      slot.mode === "per_row" ? "Running per-row..." : "Running general...";
+    testsStatusEl.className = "tests-status muted";
+    showProgress(slot.progress || "starting...");
+    return;
+  }
+
+  if (slot.status === "warning") {
+    runTestsBtn.disabled = false;
+    runTestsBtn.classList.remove("running");
+    runTestsBtn.textContent = "Run tests";
+    testsStatusEl.textContent = `Warning: ${slot.message || "Test runner error"}`;
+    testsStatusEl.className = "tests-status warning";
+    hideProgress();
+    return;
+  }
+
   runTestsBtn.disabled = false;
   runTestsBtn.classList.remove("running");
   runTestsBtn.textContent = "Run tests";
-  testsStatusEl.textContent =
-    `Ready: ${file.summary.testcase_count} testcase${file.summary.testcase_count === 1 ? "" : "s"} found. Click "Run tests" to execute.`;
-  testsStatusEl.className = "tests-status muted";
+  hideProgress();
+
+  const payload = slot.payload;
+  if (!payload) return;
+
+  if (payload.warning) {
+    testsStatusEl.textContent = `Warning: ${payload.warning}`;
+    testsStatusEl.className = "tests-status warning";
+  } else if ((payload.specs || []).length === 0) {
+    testsStatusEl.textContent = "No Testcase elements were found.";
+    testsStatusEl.className = "tests-status muted";
+  } else {
+    const allPassed = payload.all_passed === true;
+    testsStatusEl.textContent =
+      allPassed ? "All rows passed." : "Some rows did not pass.";
+    testsStatusEl.className =
+      allPassed ? "tests-status passed" : "tests-status failed";
+  }
+
+  if (slot.mode === "general") {
+    renderGeneralResults(payload);
+  } else {
+    renderTestResults(payload);
+  }
 }
 
 runTestsBtn.addEventListener("click", async () => {
   if (!sessionId || loaded.length === 0) return;
   const file = loaded[currentIdx];
   if (!file || !file.summary || !file.summary.has_testcases) return;
+  const filename = file.filename;
   const mode = perRowToggle.checked ? "per_row" : "general";
 
-  runTestsBtn.disabled = true;
-  runTestsBtn.classList.add("running");
-  runTestsBtn.textContent = "Running...";
-  testsStatusEl.textContent = `Starting ${mode === "per_row" ? "per-row" : "general"} run...`;
-  testsStatusEl.className = "tests-status muted";
-  testsResultsEl.innerHTML = "";
-  testsResultsEl.classList.add("empty");
-  showProgress("starting...");
-  logEvent("tests_run_started", { filename: file.filename, mode });
+  setTestSlot(filename, { status: "running", progress: "starting...", mode, jobId: null, payload: null, message: null });
+  logEvent("tests_run_started", { filename, mode });
 
   let res;
   try {
     res = await fetch("/api/tests/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        session_id: sessionId,
-        filename: file.filename,
-        mode,
-      }),
+      body: JSON.stringify({ session_id: sessionId, filename, mode }),
     });
   } catch (err) {
-    finishTestsButton();
-    hideProgress();
-    setTestsWarning(`Network error: ${err}`);
+    setTestSlot(filename, { status: "warning", message: `Network error: ${err}`, mode });
     return;
   }
-
   if (!res.ok) {
-    finishTestsButton();
-    hideProgress();
     const text = await res.text();
-    setTestsWarning(`Server error ${res.status}: ${text}`);
+    setTestSlot(filename, { status: "warning", message: `Server error ${res.status}: ${text}`, mode });
     return;
   }
-  const payload = await res.json();
+  const startResp = await res.json();
 
-  if (payload.mode === "general") {
-    finishTestsButton();
-    hideProgress();
-    finalizeTests(payload, file, "general");
+  if (startResp.mode === "general") {
+    finalizeSlot(filename, startResp, "general");
     return;
   }
 
-  const jobId = payload.job_id;
-  await pollJob(jobId, file);
+  setTestSlot(filename, { status: "running", progress: "starting...", jobId: startResp.job_id, mode: "per_row" });
+  pollFor(filename, startResp.job_id);
 });
 
-async function pollJob(jobId, file) {
+async function pollFor(filename, jobId) {
   while (true) {
     await new Promise((r) => setTimeout(r, 400));
-    let res;
+    const slot = testState[filename];
+    if (!slot || slot.jobId !== jobId) return;
+
+    let snap;
     try {
-      res = await fetch(`/api/tests/progress/${jobId}`);
+      const res = await fetch(`/api/tests/progress/${jobId}`);
+      if (!res.ok) {
+        const t = await res.text();
+        setTestSlot(filename, { status: "warning", message: `Job lookup failed: ${t}`, mode: "per_row" });
+        return;
+      }
+      snap = await res.json();
     } catch (err) {
-      finishTestsButton();
-      hideProgress();
-      setTestsWarning(`Network error polling job: ${err}`);
+      setTestSlot(filename, { status: "warning", message: `Polling error: ${err}`, mode: "per_row" });
       return;
     }
-    if (!res.ok) {
-      finishTestsButton();
-      hideProgress();
-      const t = await res.text();
-      setTestsWarning(`Job lookup failed: ${t}`);
-      return;
-    }
-    const snap = await res.json();
+
     const pct = snap.total_rows
       ? Math.floor((snap.done_rows * 100) / snap.total_rows)
       : 0;
-    showProgress(
-      snap.total_rows
-        ? `${pct}% (${snap.done_rows}/${snap.total_rows} rows)`
-        : "starting..."
-    );
+    const progress = snap.total_rows
+      ? `${pct}% (${snap.done_rows}/${snap.total_rows} rows)`
+      : "starting...";
+
     if (snap.finished) {
-      finishTestsButton();
-      hideProgress();
-      finalizeTests(snap, file, "per_row");
+      finalizeSlot(filename, snap, "per_row");
       return;
     }
+    setTestSlot(filename, { status: "running", progress, jobId, mode: "per_row" });
   }
 }
 
-function finishTestsButton() {
-  runTestsBtn.disabled = false;
-  runTestsBtn.classList.remove("running");
-  runTestsBtn.textContent = "Run tests";
+function finalizeSlot(filename, payload, mode) {
+  logEvent("tests_run_complete", {
+    filename, mode, ok: payload.ok, all_passed: payload.all_passed,
+  });
+  if (!payload.ok) {
+    setTestSlot(filename, { status: "warning", message: payload.warning || "Test runner reported an error.", mode });
+  } else {
+    setTestSlot(filename, { status: "done", payload, mode });
+  }
 }
 
 function showProgress(text) {
@@ -747,50 +798,6 @@ function showProgress(text) {
 }
 function hideProgress() {
   testsProgressEl.classList.add("hidden");
-}
-
-function finalizeTests(payload, file, mode) {
-  logEvent("tests_run_complete", {
-    filename: file.filename,
-    mode,
-    ok: payload.ok,
-    all_passed: payload.all_passed,
-  });
-
-  if (!payload.ok) {
-    setTestsWarning(payload.warning || "Test runner reported an error.");
-    return;
-  }
-  if ((payload.specs || []).length === 0) {
-    testsStatusEl.textContent = "No Testcase elements were found.";
-    testsStatusEl.className = "tests-status muted";
-    return;
-  }
-  if (payload.warning) {
-    testsStatusEl.textContent = `Warning: ${payload.warning}`;
-    testsStatusEl.className = "tests-status warning";
-  } else {
-    const allPassed = payload.all_passed === true;
-    testsStatusEl.textContent = allPassed ? "All rows passed." : "Some rows did not pass.";
-    testsStatusEl.className = allPassed ? "tests-status passed" : "tests-status failed";
-  }
-
-  if (mode === "general") {
-    renderGeneralResults(payload);
-  } else {
-    renderTestResults(payload);
-  }
-
-  testsPassed = payload.all_passed === true;
-  updateTestsStatus();
-  if (loaded[currentIdx]) renderIssues(loaded[currentIdx]);
-}
-
-function setTestsWarning(msg) {
-  testsStatusEl.textContent = `Warning: ${msg}`;
-  testsStatusEl.className = "tests-status warning";
-  testsResultsEl.innerHTML = "";
-  testsResultsEl.classList.add("empty");
 }
 
 function renderTestResults(payload) {

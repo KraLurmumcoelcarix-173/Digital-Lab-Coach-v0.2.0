@@ -527,8 +527,8 @@ main {
 .tests-results tr.failed td.row-status { color: #b91c1c; font-weight: 600; }
 .tests-results tr.error  td.row-status { color: #92400e; font-weight: 600; }
 .tests-results tr.no_run td.row-status { color: var(--muted); }
-.tests-results tr.passed td.row-raw { color: #15803d; }
-.tests-results tr.failed td.row-raw { color: #b91c1c; }
+.tests-results tr.failed td.row-idx { color: #b91c1c; font-weight: 700; }
+.tests-results tr.error  td.row-idx { color: #92400e; font-weight: 700; }
 .tests-results .row-idx {
   color: var(--muted);
   text-align: right;
