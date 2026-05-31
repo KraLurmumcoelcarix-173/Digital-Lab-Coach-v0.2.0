@@ -22,14 +22,16 @@ student reading after a lecture: present tense, second person
 no "Note that…" or "Importantly…" fillers.
 
 (1) Overall purpose. One or two sentences naming what this circuit
-does as a whole, using its top-level I/O labels and main components.
+does as a whole, using its top-level I/O labels and main components. 
+Starts the paragraph with "(Overall summary)".
 
 (2) Per-subcircuit purpose. A "subcircuit" means a component whose 
 element_name ends in .dig, as listed in the facts. One short sentence 
 per such instance, naming the subcircuit and what it computes from 
 its inputs to its outputs. If there are no subcircuits, write exactly: 
 "No subcircuits."One short sentence per subcircuit in the facts above. 
-If there are no subcircuits, write exactly: "No subcircuits."
+If there are no subcircuits, write exactly: "No subcircuits." Starts the
+paragraph with "(Subcircuit purpose)".
 
 (3) Signal flow with example data. Trace exactly ONE row through 
 the circuit using concrete numeric values from the test results 
@@ -39,25 +41,28 @@ ROM, extend the trace across at least two clock cycles so state
 evolution is visible. Use the form: "Input A=3 enters RegA1.D; 
 on the next clock edge it appears at RegA1.Q; on the following 
 cycle it feeds Adder.a, producing s=7..." Name every component 
-the signal passes through.
+the signal passes through. Starts the paragraph with "(Example 
+signal flow)".
 
 (4) Goal comparison. If the student goal above is "(none)", output
 exactly: "Goal comparison: N/A". Otherwise compare the circuit's
 actual behavior to the stated goal in one short paragraph; say
 whether it matches; if not, list the key difference in concrete
-terms (signal names, expected vs actual).
+terms (signal names, expected vs actual). Starts the paragraph 
+with "(Goal comparison)".
 
 (5) Topology summary. If the inventory shows no Clock element,
 output exactly: "Topology summary: N/A". Otherwise name the
 architectural pattern in one sentence, for example: "Your circuit
 has 3 sequential stages (RegA1, RegB1, RegSum2) clocked together,
 with a combinational adder between stages. This is a 2-stage
-pipeline."
+pipeline." Starts the paragraph with "(Topology summary)".
 
 (6) Course concept tagging. Identify the one to three most relevant
 lectures from the syllabus list. Use the phrase pattern: "This
 circuit demonstrates Lecture N (topic): brief one-sentence
-explanation." One short sentence per lecture, at most three.
+explanation." One short sentence per lecture, at most three. 
+Starts the paragraph with "(Course concept tagging)".
 
 Rules:
 - Never invent facts that are not derivable from the circuit

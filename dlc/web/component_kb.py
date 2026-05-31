@@ -181,7 +181,7 @@ COMPONENT_KB: dict[str, dict] = {
             "read ports, and pipeline forwarding paths."
         ),
         "transistor_count": "About 6-12 per data bit per input lane (varies by implementation)",
-        "transistor_note": "Pass-transistor MUXes can be smaller; CMOS tree MUXes scale by 2^S.",
+        "transistor_note": "N/A",
         "port_summary": "2^S data inputs + S select bits -> 1 output (S = Selector Bits)",
         "extra": {
             "behavior_example": (
