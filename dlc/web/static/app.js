@@ -1008,6 +1008,20 @@ llmStubBtn.addEventListener("click", async () => {
 
 refreshJarChip();
 
+// Cached model catalog from /api/llm/models. Re-fetched on every key
+let modelCatalog = [];
+
+function _setKeyRowStatus(provider, configured) {
+  const el = keyEls[provider].status;
+  if (configured) {
+    el.textContent = "set";
+    el.className = "key-row-status set";
+  } else {
+    el.textContent = "missing";
+    el.className = "key-row-status missing";
+  }
+}
+
 async function refreshKeyChip() {
   let info;
   try {
@@ -1017,53 +1031,133 @@ async function refreshKeyChip() {
     keyStateEl.innerHTML = `<span class="jar-state-unknown">unknown</span>`;
     return;
   }
-  if (info.configured) {
-    keyStateEl.innerHTML = `<span class="jar-state-good">set</span>`;
-    keyChipBtn.title = "Anthropic API key configured";
-  } else {
+  const per = info.providers || {};
+  for (const p of KEY_PROVIDERS) _setKeyRowStatus(p, per[p]);
+  const set = KEY_PROVIDERS.filter((p) => per[p]);
+  if (set.length === 0) {
     keyStateEl.innerHTML = `<span class="jar-state-missing">missing</span>`;
-    keyChipBtn.title = "Click to set your Anthropic API key";
+    keyChipBtn.title = "No LLM API keys configured. Click to add.";
+  } else if (set.length === KEY_PROVIDERS.length) {
+    keyStateEl.innerHTML = `<span class="jar-state-good">${set.length}/${KEY_PROVIDERS.length}</span>`;
+    keyChipBtn.title = "All providers configured.";
+  } else {
+    keyStateEl.innerHTML = `<span class="jar-state-good">${set.length}/${KEY_PROVIDERS.length}</span>`;
+    keyChipBtn.title = `Configured: ${set.join(", ")}`;
+  }
+  await refreshModelCatalog();
+}
+
+async function refreshModelCatalog() {
+  try {
+    const r = await fetch("/api/llm/models");
+    const d = await r.json();
+    modelCatalog = d.models || [];
+    populateModelSelect(d.default);
+  } catch {
   }
 }
+
+function populateModelSelect(defaultModel) {
+  const byProvider = {};
+  for (const m of modelCatalog) {
+    (byProvider[m.provider] = byProvider[m.provider] || []).push(m);
+  }
+  const previous = l2ModelSelect.value;
+  let html = "";
+  for (const provider of ["anthropic", "openai"]) {
+    const arr = byProvider[provider] || [];
+    if (arr.length === 0) continue;
+    html += `<optgroup label="${provider}">`;
+    for (const m of arr) {
+      const tag = m.key_configured ? "" : " (no key)";
+      html += `<option value="${m.id}" ${m.key_configured ? "" : "disabled"}>${m.label}${tag}</option>`;
+    }
+    html += `</optgroup>`;
+  }
+  l2ModelSelect.innerHTML = html;
+  const enabled = modelCatalog.filter((m) => m.key_configured).map((m) => m.id);
+  if (enabled.includes(previous)) {
+    l2ModelSelect.value = previous;
+  } else if (enabled.length > 0) {
+    l2ModelSelect.value = enabled[0];
+  } else if (defaultModel) {
+    l2ModelSelect.value = defaultModel;
+  }
+}
+
 refreshKeyChip();
 
 keyChipBtn.addEventListener("click", () => {
-  keyInput.value = "";
-  keyModalMsg.textContent = "";
-  keyModalMsg.className = "modal-msg";
+  for (const p of KEY_PROVIDERS) {
+    keyEls[p].input.value = "";
+    keyEls[p].msg.textContent = "";
+    keyEls[p].msg.className = "modal-msg key-row-msg";
+  }
   keyModal.classList.remove("hidden");
-  setTimeout(() => keyInput.focus(), 50);
 });
 keyCancelBtn.addEventListener("click", () => keyModal.classList.add("hidden"));
-keySaveBtn.addEventListener("click", async () => {
-  const key = keyInput.value.trim();
-  if (!key) {
-    keyModalMsg.textContent = "Empty.";
-    keyModalMsg.className = "modal-msg err";
-    return;
-  }
-  let res;
-  try {
-    res = await fetch("/api/config/api_key", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key }),
-    });
-  } catch (err) {
-    keyModalMsg.textContent = `Save failed: ${err}`;
-    keyModalMsg.className = "modal-msg err";
-    return;
-  }
-  if (!res.ok) {
-    const t = await res.text();
-    keyModalMsg.textContent = `Rejected: ${t}`;
-    keyModalMsg.className = "modal-msg err";
-    return;
-  }
-  keyModalMsg.textContent = "Saved.";
-  keyModalMsg.className = "modal-msg ok";
-  await refreshKeyChip();
-  setTimeout(() => keyModal.classList.add("hidden"), 500);
+
+function _showKeyRowMsg(provider, text, cls) {
+  const el = keyEls[provider].msg;
+  el.textContent = text;
+  el.className = `modal-msg key-row-msg ${cls}`;
+}
+
+document.querySelectorAll(".key-save-btn").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const provider = btn.dataset.provider;
+    const key = keyEls[provider].input.value.trim();
+    if (!key) {
+      _showKeyRowMsg(provider, "Empty.", "err");
+      return;
+    }
+    let res;
+    try {
+      res = await fetch("/api/config/api_key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, key }),
+      });
+    } catch (err) {
+      _showKeyRowMsg(provider, `Save failed: ${err}`, "err");
+      return;
+    }
+    if (!res.ok) {
+      const t = await res.text();
+      _showKeyRowMsg(provider, `Rejected: ${t}`, "err");
+      return;
+    }
+    _showKeyRowMsg(provider, "Saved.", "ok");
+    keyEls[provider].input.value = "";
+    await refreshKeyChip();
+  });
+});
+
+document.querySelectorAll(".key-clear-btn").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const provider = btn.dataset.provider;
+    if (!confirm(`Clear the saved ${provider} key from ~/.dlc/config.json?`)) return;
+    let res;
+    try {
+      res = await fetch(`/api/config/api_key?provider=${provider}`, { method: "DELETE" });
+    } catch (err) {
+      _showKeyRowMsg(provider, `Clear failed: ${err}`, "err");
+      return;
+    }
+    if (!res.ok) {
+      const t = await res.text();
+      _showKeyRowMsg(provider, `Clear failed: ${t}`, "err");
+      return;
+    }
+    const d = await res.json();
+    _showKeyRowMsg(
+      provider,
+      d.configured ? "Cleared from config (env var still set)." : "Cleared.",
+      "ok",
+    );
+    keyEls[provider].input.value = "";
+    await refreshKeyChip();
+  });
 });
 
 let l2LibraryFilename = null;  
