@@ -25,7 +25,7 @@ def test_to_dict_returns_dict_with_all_top_level_fields():
     expected = {
         "source_path", "format_version", "header", "inventory",
         "inputs", "outputs", "subcircuits", "components", "nets", "bugs",
-        "roms",
+        "roms", "testcases",
     }
     assert set(d.keys()) == expected
 

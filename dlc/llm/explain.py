@@ -78,6 +78,13 @@ def _compact_facts(facts: dict) -> dict:
              "words_at_addresses": (r.get("words_preview") or [])[:12]}
             for r in facts.get("roms", [])
         ],
+        "testcases": [
+            {"label": t.get("label"),
+             "columns": t.get("columns"),
+             "line_count": t.get("line_count"),
+             "rows_sample": (t.get("rows_sample") or [])[:20]}
+            for t in facts.get("testcases", [])
+        ],
     }
 
 
@@ -157,6 +164,7 @@ def explain_circuit(
         prompt,
         api_key=api_key,
         model=model or DEFAULT_MODEL,
+        max_tokens=2400,
         system=(
             "You are a circuit reasoning assistant for UNC COMP 311. "
             "Use plain text only. No markdown, no bullets, no headers."

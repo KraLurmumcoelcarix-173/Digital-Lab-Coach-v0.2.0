@@ -117,6 +117,7 @@ class CircuitFacts:
     nets: list[NetFact]
     bugs: list[BugFact]
     roms: list = field(default_factory=list)
+    testcases: list = field(default_factory=list)
 
 
 # Helpers
@@ -500,6 +501,11 @@ def _collect_bugs(
 # Public API
 
 def _rom_facts(circuit: Circuit) -> list[dict]:
+    """Per-ROM contents: the words stored at consecutive addresses 0,1,2...
+
+    Digital stores ROM Data as a comma/newline-separated string inside a
+    <data> tag; intFormat says how to read the digits (usually hex).
+    """
     roms = []
     for idx, comp in enumerate(circuit.components):
         if comp.element_name != "ROM":
@@ -525,6 +531,27 @@ def _rom_facts(circuit: Circuit) -> list[dict]:
     return roms
 
 
+def _testcase_facts(circuit: Circuit) -> list[dict]:
+
+    out = []
+    for idx, comp in enumerate(circuit.components):
+        if comp.element_name != "Testcase":
+            continue
+        raw = comp.attributes.get("Testdata", "")
+        if not isinstance(raw, str):
+            raw = "" if raw is None else str(raw)
+        lines = [ln.rstrip() for ln in raw.splitlines() if ln.strip()]
+        header = next((ln for ln in lines if not ln.lstrip().startswith("#")), "")
+        out.append({
+            "component_index": idx,
+            "label": comp.label,
+            "columns": header,
+            "line_count": len(lines),
+            "rows_sample": lines[:25],
+        })
+    return out
+
+
 def extract_facts(
     circuit: Circuit,
     netlist: NetList | None = None,
@@ -546,6 +573,7 @@ def extract_facts(
     net_facts = _net_facts(circuit, netlist, per_net_width, conflicts)
     bugs = _collect_bugs(circuit, netlist, graph, conflicts)
     rom_facts = _rom_facts(circuit)
+    testcase_facts = _testcase_facts(circuit)
 
     header = {
         "component_count": len(circuit.components),
@@ -569,4 +597,5 @@ def extract_facts(
         nets=net_facts,
         bugs=bugs,
         roms=rom_facts,
+        testcases=testcase_facts,
     )

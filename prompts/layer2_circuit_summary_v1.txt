@@ -204,6 +204,29 @@ P3.8 GIVEN you are writing the signal-flow trace,
      placeholder such as "an instruction word", "a value", or "some
      data" without an accompanying number.
 
+P3.9 GIVEN [CIRCUIT FACTS] lists subcircuits,
+     WHEN you write the signal-flow trace,
+     THEN name every subcircuit the traced signal actually passes
+     through; do not skip a participating subcircuit (for a CPU trace,
+     name the ALU subcircuit when the operands reach it).
+
+P3.10 GIVEN [CIRCUIT FACTS] contains a "testcases" entry with a
+     rows_sample,
+     WHEN you write paragraph 3,
+     THEN choose one real data row, read what each column means from the
+     "columns" header line, and use that row's exact input values and
+     its exact expected output values. The value you state for each
+     top-level output MUST equal the value in that row; never assert an
+     output value you cannot read from a row or derive from the facts.
+
+P3.11 GIVEN a Multiplexer or other selector is driven by decoded logic
+     (comparators, gates, encoded control bits) rather than a direct
+     top-level input,
+     WHEN you say which operation or input is selected,
+     THEN infer it from the test rows (which control value produced
+     which result) and do not assert a select-bit-to-input mapping that
+     is not present in the facts.
+
 ## Paragraph 4 - Goal comparison
 
 P4.1 GIVEN [STUDENT GOAL] contains exactly the string "(none)",
@@ -325,8 +348,16 @@ SI4. GIVEN you are tempted to produce signal flow example paragraph,
     WHEN you write it,
     THEN you must not specify if a value is hex, decimal or binary (such as 
     you must not write "the value is set to 5 binary 00101 (5)"), you must know
-    the only three possible formats for values are: 1. 0b... (decimal value); 
+    the only three possible formats for values are: 1. 0b... (decimal value);
     2. 0x... (decimal value); 3. decimal value.
+
+SI5. GIVEN a value is a wide instruction word or opcode encoding (more
+    than 8 bits, such as a 32-bit ROM instruction word),
+    WHEN you cite it in the trace,
+    THEN give the hex form only and do NOT append a parenthetical
+    decimal. Converting a wide encoding to decimal is error-prone and
+    not meaningful; the decimal-in-parentheses rule (SI3) applies only
+    to small operand values of roughly 8 bits or fewer.
 
 # EDGE CASES
 
