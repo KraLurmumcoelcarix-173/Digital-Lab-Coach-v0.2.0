@@ -1765,37 +1765,26 @@ function renderGradeDonut(g) {
   const note = g.capped
     ? `<div class="grade-note capped">Capped at ${g.total} - hallucinated: ${escapeHtml((g.hallucinated_items || []).join(", ") || "yes")}.</div>`
     : "";
-  const meta = `<div class="grade-meta">Grader: ${escapeHtml(g.grader_model || "?")}${(g.raw_total != null && g.raw_total !== g.total) ? ` (raw ${g.raw_total})` : ""}</div>`;
   // Flags = problems the grader caught in the SUMMARY's text (not in
-  // the circuit) that the sub-scores don't already express. Collapsed
-  // to one line; hover (or click/tap) to expand.
+  // the circuit) that the sub-scores don't already express.
   let flags = "";
   if (g.flags && g.flags.length) {
     const items = g.flags.map((f) => {
       if (typeof f === "string") return `<li>${escapeHtml(f)}</li>`;
-      const para = f.paragraph ? `<span class="flag-para">¶${f.paragraph}</span> ` : "";
-      const quote = f.quote ? `<span class="flag-quote">“${escapeHtml(f.quote)}”</span> — ` : "";
+      const para = f.paragraph ? `<span class="flag-para">P${f.paragraph}</span> ` : "";
+      const quote = f.quote ? `<span class="flag-quote">"${escapeHtml(f.quote)}"</span> — ` : "";
       return `<li>${para}${quote}${escapeHtml(f.issue || "")}</li>`;
     }).join("");
     flags =
-      `<div class="grade-flags collapsed" id="grade-flags">` +
+      `<div class="grade-flags" id="grade-flags">` +
       `<div class="grade-flags-title">Grader feedback: ${g.flags.length} issue${g.flags.length === 1 ? "" : "s"} ` +
-      `in this summary's wording <span class="flag-hint">(hover to expand)</span></div>` +
-      `<div class="grade-flags-body">` +
-      `<div class="grade-flags-sub muted">Problems the grader spotted in the summary text it graded — ` +
-      `not issues with your circuit, and not already counted in the scores above.</div>` +
-      `<ul>${items}</ul></div></div>`;
+      `in this summary's wording</div>` +
+      `<ul>${items}</ul></div>`;
   }
 
   gradeBody.innerHTML =
     `<div class="grade-card">${svg}<div class="grade-info">${legend}` +
-    `<div class="grade-detail muted">Hover a slice or row for how it is graded.</div>${note}${meta}</div></div>${flags}`;
-
-  const flagsEl = gradeBody.querySelector("#grade-flags");
-  if (flagsEl) {
-    // Hover previews (CSS); click/tap pins it open or re-collapses.
-    flagsEl.addEventListener("click", () => flagsEl.classList.toggle("collapsed"));
-  }
+    `<div class="grade-detail muted">Hover a slice or row for how it is graded.</div>${note}</div></div>${flags}`;
 
   const detail = gradeBody.querySelector(".grade-detail");
   const card = gradeBody.querySelector(".grade-card");

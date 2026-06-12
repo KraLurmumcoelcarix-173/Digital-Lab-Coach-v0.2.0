@@ -250,6 +250,32 @@ P3.13 GIVEN you cite an instruction word fetched from a ROM in the
      instruction word (for example 0x70128313) in the trace without its
      decode and a value you justify from that decode.
 
+P3.14 GIVEN the traced path passes through a shifter (a BarrelShifter
+     or a shifter subcircuit) fed by two data-bearing inputs,
+     WHEN you say which input is the shifted data and which supplies
+     the shift amount,
+     THEN derive the roles from the chosen row's arithmetic: shifting
+     the candidate data by the candidate amount must reproduce the
+     row's output exactly (for example 0xF0000000 becoming 0x78000000
+     is a right shift by 1, so the input whose low bits equal 1 is the
+     shift amount and 0xF0000000 is the data). If the row's values do
+     not determine the roles, write "one input supplies the shift
+     amount" without asserting which.
+
+P3.15 GIVEN you state a concrete value or mapping for anything BEYOND
+     the chosen row's inputs and expected outputs (for example the
+     outputs of parallel gates feeding unselected multiplexer inputs,
+     or a select-to-operation mapping such as "control value 3 selects
+     NOR"),
+     WHEN you write that value or mapping,
+     THEN compute and check it yourself against the facts or against
+     the test row that uses that control value BEFORE writing it, and
+     keep only claims that pass the check. Never write "confirming the
+     mapping read from the test data" unless you actually compared each
+     cited control value with its row's expected output. If you cannot
+     verify a side value, omit it - a shorter correct trace beats a
+     longer wrong one.
+
 ## Paragraph 4 - Goal comparison
 
 P4.1 GIVEN [STUDENT GOAL] contains exactly the string "(none)",
