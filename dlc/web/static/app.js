@@ -145,7 +145,7 @@ let lastGradedSummary = null;
 // fresh Summarize attempt. The old silent auto-retry was removed: it
 // re-spent tokens without consent and could replace a summary with a
 // worse one.
-const GRADE_HINT_THRESHOLD = 85;
+const GRADE_HINT_THRESHOLD = 90;
 
 let sessionId = null;
 

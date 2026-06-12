@@ -41,7 +41,9 @@ Its six paragraphs are, in order: (1) overall purpose, (2) subcircuit roles,
 - goal_comparison (0-15): If [STUDENT GOAL] is real text, did paragraph 4
   compare it against the right facts? If [STUDENT GOAL] is "(none)", award the
   full 15 only if paragraph 4 correctly states the comparison is N/A and does
-  not invent a goal.
+  not invent a goal. If the goal text does not describe circuit behavior and
+  paragraph 4 states exactly that no comparison was made, award the full 15 -
+  that fixed reply is the correct handling, not an omission.
 - topology_accuracy (0-10): Is paragraph 5's architectural pattern named
   correctly, or is "N/A" correctly stated when the circuit has no Clock?
   If the circuit has NO Clock, a paragraph 5 of "N/A" earns the full 10,
