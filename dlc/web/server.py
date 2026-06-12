@@ -30,7 +30,7 @@ from dlc.llm import client as llm_client
 from dlc.llm.explain import explain_circuit
 from dlc.llm.grade import grade_summary
 
-from dlc.analyzer import check_all_l1
+from dlc.analyzer import check_all_l1_deep
 from dlc.parser.dig_parser import parse_dig_file
 from dlc.parser.graph import build_signal_graph
 from dlc.parser.netlist import build_netlist
@@ -39,9 +39,10 @@ from dlc.testing.config import (
     set_digital_jar_path,
     prompt_for_jar_path,
 )
-from dlc.testing.results import parse_cli_output
+from dlc.testing.results import parse_cli_output, parse_cli_output_verbose
 from dlc.testing.runner import (
-    find_digital_jar, per_row_run, per_row_run_iter, run_digital_cli,
+    find_digital_jar, per_file_run_fast, per_row_run, per_row_run_auto,
+    per_row_run_iter, run_digital_cli,
 )
 
 from dlc.web.component_kb import library_for_inventory
@@ -67,6 +68,11 @@ class TestsRequest(BaseModel):
     filename: str
     timeout: float = 30.0
     mode: str = "per_row"   
+
+class TestsAllRequest(BaseModel):
+    session_id: str
+    timeout: float = 60.0
+
 
 class ApiKeyRequest(BaseModel):
     provider: str = "anthropic"
@@ -167,7 +173,9 @@ async def circuit(files: list[UploadFile] = File(...)) -> dict:
             nl = build_netlist(c)
             g = build_signal_graph(c, nl)
             try:
-                issues_payload = check_all_l1(c).to_dict()["issues"]
+                # Deep: nested subcircuit (and sub-subcircuit) L1 bugs
+                # must alarm too, with their breadcrumb scope.
+                issues_payload = check_all_l1_deep(c).to_dict()["issues"]
                 issues_error = None
             except Exception as exc:
                 issues_payload = []
@@ -320,26 +328,64 @@ def _run_per_row_job(job_id: str, target: dict, timeout: float) -> None:
     any_runner_error = False
     done = 0
 
-    for spec_idx, spec in enumerate(specs):
+    def _row_payload(spec, row_result) -> dict:
         rows_by_idx = {row.line_index: row for row in spec.rows}
+        row = rows_by_idx.get(row_result.row_index)
+        return {
+            "index": row_result.row_index,
+            "raw": row.raw if row else "",
+            "status": row_result.status,
+            "error_message": row_result.error_message,
+            "mismatches": row_result.mismatches,
+        }
+
+    # Fast path first: ONE Digital call covers every testcase in the
+    # file (see dlc/testing/runner.py). Specs whose 1:1 row mapping
+    # can't be trusted come back in `fallback` and stream through the
+    # cumulative runner below.
+    try:
+        fast_results, fallback = per_file_run_fast(
+            specs, target["path"], jar_path=jar_path,
+            timeout=max(timeout, 60.0),
+        )
+    except Exception as exc:
+        write({
+            "ok": False, "finished": True,
+            "warning": f"Test runner crashed: {type(exc).__name__}: {exc}",
+            "all_passed": None,
+        })
+        return
+
+    fallback_names = {s.name for s in fallback}
+    for spec_idx, spec in enumerate(specs):
+        if spec.name in fallback_names:
+            continue
+        for row_result in fast_results.get(spec.name, []):
+            payload = _row_payload(spec, row_result)
+            if row_result.status == "failed":
+                any_failed = True
+            if row_result.status == "error":
+                any_runner_error = True
+            done += 1
+            with _JOBS_LOCK:
+                _JOBS[job_id]["specs"][spec_idx]["rows"].append(payload)
+                _JOBS[job_id]["done_rows"] = done
+
+    for spec_idx, spec in enumerate(specs):
+        if spec.name not in fallback_names:
+            continue
         try:
             for row_result in per_row_run_iter(
                 spec, target["path"], jar_path=jar_path, timeout=timeout,
             ):
-                row = rows_by_idx.get(row_result.row_index)
-                row_payload = {
-                    "index": row_result.row_index,
-                    "raw": row.raw if row else "",
-                    "status": row_result.status,
-                    "error_message": row_result.error_message,
-                }
+                payload = _row_payload(spec, row_result)
                 if row_result.status == "failed":
                     any_failed = True
                 if row_result.status == "error":
                     any_runner_error = True
                 done += 1
                 with _JOBS_LOCK:
-                    _JOBS[job_id]["specs"][spec_idx]["rows"].append(row_payload)
+                    _JOBS[job_id]["specs"][spec_idx]["rows"].append(payload)
                     _JOBS[job_id]["done_rows"] = done
         except Exception as exc:
             write({
@@ -357,6 +403,112 @@ def _run_per_row_job(job_id: str, target: dict, timeout: float) -> None:
         ),
         "all_passed": (not any_failed) and (not any_runner_error),
     })
+
+@app.post("/api/tests/all")
+def tests_all(req: TestsAllRequest) -> dict:
+    """Quick pass/fail across EVERY uploaded file: one fast
+    `CLI test -verbose` call per file, no cumulative re-running.
+
+    Per-file payload doubles as a mode="general" tests result so the
+    frontend can fill each file's Tests panel from one click.
+    """
+    session = _SESSIONS.get(req.session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    jar_path = find_digital_jar()
+    files_payload: list[dict] = []
+    n_with_tests = n_passed = n_failed = n_error = 0
+
+    for f in session["files"]:
+        entry = {
+            "filename": f["name"], "ok": True, "warning": None,
+            "mode": "general", "status": "no_tests",
+            "specs": [], "all_passed": None,
+        }
+        files_payload.append(entry)
+        try:
+            circuit = parse_dig_file(f["path"])
+            specs = [s for s in extract_test_specs(circuit) if s.rows]
+        except Exception as exc:
+            entry.update(ok=False, status="parse_error",
+                         warning=f"Parse failed: {exc}")
+            n_error += 1
+            continue
+        if not specs:
+            continue
+        n_with_tests += 1
+        if jar_path is None:
+            entry.update(ok=False, status="error",
+                         warning="Digital.jar not configured. Open the jar picker.")
+            n_error += 1
+            continue
+        code, output = run_digital_cli(
+            f["path"], jar_path, timeout=req.timeout, verbose=True,
+        )
+        if code < 0:
+            msg = {-1: "Digital CLI timed out", -2: "java not on PATH"}.get(
+                code, f"Runner error: {output}")
+            entry.update(ok=False, status="error", warning=msg)
+            n_error += 1
+            continue
+        sections = parse_cli_output_verbose(
+            output, known_names={s.name for s in specs},
+        )
+        any_failed = any_error = False
+        for spec in specs:
+            sec = sections.get(spec.name)
+            if sec is None and len(specs) == 1 and len(sections) == 1:
+                sec = next(iter(sections.values()))
+            if sec is None or sec.status == "error":
+                any_error = True
+                entry["specs"].append({
+                    "name": spec.name, "status": "error",
+                    "pass_pct": None, "fail_pct": None,
+                    "row_count": len(spec.rows), "failing_rows": None,
+                    "error_message": sec.error_message if sec else None,
+                })
+                continue
+            if sec.status == "passed":
+                entry["specs"].append({
+                    "name": spec.name, "status": "passed",
+                    "pass_pct": 100, "fail_pct": 0,
+                    "row_count": len(spec.rows), "failing_rows": 0,
+                })
+                continue
+            any_failed = True
+            fail_pct = sec.fail_pct or 0
+            failing_rows = (
+                sum(1 for x in sec.row_failed if x) if sec.table_ok else None
+            )
+            entry["specs"].append({
+                "name": spec.name, "status": "failed",
+                "pass_pct": 100 - fail_pct, "fail_pct": fail_pct,
+                "row_count": len(spec.rows), "failing_rows": failing_rows,
+            })
+        if any_error:
+            entry.update(status="error", all_passed=None)
+            n_error += 1
+        elif any_failed:
+            entry.update(status="failed", all_passed=False)
+            n_failed += 1
+        else:
+            entry.update(status="passed", all_passed=True)
+            n_passed += 1
+
+    return {
+        "ok": True,
+        "files": files_payload,
+        "summary": {
+            "total_files": len(files_payload),
+            "files_with_tests": n_with_tests,
+            "passed": n_passed,
+            "failed": n_failed,
+            "errors": n_error,
+        },
+        "all_passed": (n_with_tests > 0 and n_passed == n_with_tests),
+    }
+
 
 @app.post("/api/tests/start")
 def tests_start(req: TestsRequest) -> dict:
@@ -448,7 +600,7 @@ def run_tests(req: TestsRequest) -> dict:
 
     for spec in specs:
         try:
-            row_results = per_row_run(
+            row_results = per_row_run_auto(
                 spec, target["path"], jar_path=jar_path, timeout=req.timeout,
             )
         except Exception as exc:
@@ -467,6 +619,7 @@ def run_tests(req: TestsRequest) -> dict:
                 "raw": row.raw if row else "",
                 "status": r.status,
                 "error_message": r.error_message,
+                "mismatches": r.mismatches,
             })
             if r.status == "failed":
                 any_failed = True
@@ -580,7 +733,9 @@ def llm_explain(req: LlmExplainRequest) -> dict:
     except Exception:
         facts_dict = circuit_summary(circuit, netlist)
 
-    issues_payload = check_all_l1(circuit).to_dict()["issues"]
+    # Deep on purpose: a structural error inside a subcircuit makes the
+    # top-level summary unreliable, so it gates L2 like a top-level one.
+    issues_payload = check_all_l1_deep(circuit).to_dict()["issues"]
     student_goal = (req.student_goal or "").strip()[:1200]
     if len(student_goal) == 0:
         student_goal = None

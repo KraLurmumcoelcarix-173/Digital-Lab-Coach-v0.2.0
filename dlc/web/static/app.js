@@ -98,6 +98,11 @@ const testsProgressEl     = document.getElementById("tests-progress");
 const testsProgressTextEl = document.getElementById("tests-progress-text");
 const perRowToggle  = document.getElementById("perrow-toggle");
 const runTestsBtn   = document.getElementById("run-tests-btn");
+const testAllBtn    = document.getElementById("test-all-btn");
+const testAllPanel  = document.getElementById("test-all-panel");
+const testAllHeadEl = document.getElementById("test-all-headline");
+const testAllListEl = document.getElementById("test-all-list");
+const testAllClose  = document.getElementById("test-all-close");
 const muteToggle    = document.getElementById("mute-toggle");
 const popupEl       = document.getElementById("hover-popup");
 const popupTitle    = document.getElementById("hover-popup-title");
@@ -207,6 +212,9 @@ function resetDashboard() {
   nextBtn.disabled = true;
   clearBtn.disabled = true;
   runTestsBtn.disabled = true;
+  testAllBtn.disabled = true;
+  testAllBtn.textContent = "Test all";
+  testAllPanel.classList.add("hidden");
   placeholder.classList.remove("hidden");
   placeholder.innerHTML =
     `No circuit loaded. Add a <code>.dig</code> file from the toolbar ` +
@@ -286,6 +294,7 @@ async function postAll() {
   prevBtn.disabled = loaded.length < 2;
   nextBtn.disabled = loaded.length < 2;
   clearBtn.disabled = false;
+  testAllBtn.disabled = false;
 
   renderCurrent();
 }
@@ -855,6 +864,87 @@ function finalizeSlot(filename, payload, mode) {
   }
 }
 
+// "Test all" — one fast pass over every uploaded file.
+
+testAllBtn.addEventListener("click", async () => {
+  if (!sessionId || loaded.length === 0) return;
+  testAllBtn.disabled = true;
+  testAllBtn.textContent = "Testing...";
+  testAllPanel.classList.remove("hidden");
+  testAllHeadEl.textContent = "Testing all files...";
+  testAllListEl.innerHTML = "";
+  logEvent("tests_run_all_started", { count: loaded.length });
+
+  let data;
+  try {
+    const res = await fetch("/api/tests/all", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+    if (!res.ok) throw new Error(`server ${res.status}: ${await res.text()}`);
+    data = await res.json();
+  } catch (err) {
+    testAllHeadEl.textContent = `Test all failed: ${err}`;
+    testAllBtn.disabled = false;
+    testAllBtn.textContent = "Test all";
+    return;
+  }
+  testAllBtn.disabled = false;
+  testAllBtn.textContent = "Test all";
+  logEvent("tests_run_all_complete", data.summary || {});
+  renderTestAllPanel(data);
+
+  // Each tested file's payload is general-mode shaped — drop it into
+  // testState so the per-file Tests panel and issue muting update too.
+  for (const f of data.files || []) {
+    if (f.status === "no_tests" || f.status === "parse_error") continue;
+    setTestSlot(f.filename, {
+      status: "done",
+      payload: { ok: f.ok, warning: f.warning, specs: f.specs, all_passed: f.all_passed },
+      mode: "general", jobId: null, message: null,
+    });
+  }
+});
+
+testAllClose.addEventListener("click", () => testAllPanel.classList.add("hidden"));
+
+function renderTestAllPanel(data) {
+  const s = data.summary || {};
+  if (!s.files_with_tests) {
+    testAllHeadEl.textContent = "No testcases found in any uploaded file.";
+  } else {
+    const head = `${s.passed}/${s.files_with_tests} circuit${s.files_with_tests === 1 ? "" : "s"} pass`;
+    const extra = s.errors ? ` · ${s.errors} error${s.errors === 1 ? "" : "s"}` : "";
+    testAllHeadEl.textContent = head + extra;
+  }
+  testAllListEl.innerHTML = (data.files || []).map((f) => {
+    const chip = {
+      passed: `<span class="ta-chip ta-pass">pass</span>`,
+      failed: `<span class="ta-chip ta-fail">fail</span>`,
+      error: `<span class="ta-chip ta-err">error</span>`,
+      parse_error: `<span class="ta-chip ta-err">parse error</span>`,
+      no_tests: `<span class="ta-chip ta-none">no tests</span>`,
+    }[f.status] || `<span class="ta-chip ta-none">?</span>`;
+    const detail = (f.specs || [])
+      .filter((sp) => sp.status === "failed" && sp.failing_rows != null)
+      .map((sp) => `${sp.failing_rows} row${sp.failing_rows === 1 ? "" : "s"} failing`)
+      .join(", ");
+    const warn = f.warning ? ` · ${escapeHtml(f.warning)}` : "";
+    return `<div class="test-all-row" data-fname="${escapeHtml(f.filename)}">
+      ${chip}
+      <span class="ta-name">${escapeHtml(f.filename)}</span>
+      <span class="ta-detail">${escapeHtml(detail)}${warn}</span>
+    </div>`;
+  }).join("");
+  testAllListEl.querySelectorAll(".test-all-row").forEach((rowEl) => {
+    rowEl.addEventListener("click", () => {
+      const idx = loaded.findIndex((x) => x.filename === rowEl.dataset.fname);
+      if (idx >= 0) { currentIdx = idx; renderCurrent(); }
+    });
+  });
+}
+
 function showProgress(text) {
   testsProgressTextEl.textContent = text;
   testsProgressEl.classList.remove("hidden");
@@ -886,11 +976,21 @@ function renderTestResults(payload) {
       const tokenCells = headers.map((_, i) =>
         `<td>${escapeHtml(tokens[i] ?? "")}</td>`
       ).join("");
+      let mismatchHtml = "";
+      if (row.status === "failed" && Array.isArray(row.mismatches) && row.mismatches.length) {
+        const parts = row.mismatches.map((m) =>
+          `${escapeHtml(m.column ?? "?")}: expected ${escapeHtml(m.expected)}, got ${escapeHtml(m.found)}`
+        );
+        mismatchHtml = `<tr class="mismatch-row">
+          <td></td>
+          <td colspan="${headers.length + 1}">${parts.join(" &middot; ")}</td>
+        </tr>`;
+      }
       return `<tr class="${escapeHtml(row.status)}">
         ${idxCell}
         ${tokenCells}
         <td class="row-status">${escapeHtml(row.status)}</td>
-      </tr>`;
+      </tr>${mismatchHtml}`;
     }).join("");
 
     return `

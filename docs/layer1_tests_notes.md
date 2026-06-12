@@ -26,6 +26,18 @@ uv run pytest tests/test_analyzer_combinational_loops.py
 prefixes each issue's title with the file breadcrumb. Use deep when you 
 want a single report covering the entire .dig hierarchy.
 
+Nested issues additionally carry:
+- `scope` — the breadcrumb string (`"alu.dig > add-sub.dig"`); `None`
+  for top-level issues.
+- `component_indices` — remapped to the TOP-level subcircuit-instance
+  component, so the web overlay highlights the right node on the top
+  graph.
+- `child_component_indices` — the original indices, valid inside the
+  child circuit (for L3 / drill-down use).
+
+The web UI (`/api/circuit`, `/api/llm/explain`) runs the DEEP variant,
+so subcircuit bugs alarm and gate Layer 2 like top-level ones.
+
 ```bash
 uv run python -c "
 from dlc.parser.dig_parser import parse_dig_file
@@ -165,4 +177,21 @@ One Issue kind:
 
 ## Function 9 — Sequential/timing checker
 
-*(TBD)*
+### What it produces
+
+Four Issue kinds:
+- `register_no_clock` (error) — a Register whose `C` pin is undriven.
+- `floating_register_en` (error) — a Register whose `en` pin is undriven.
+- `orphan_clock` (warning) — a Clock component driving nothing.
+- `empty_rom` (warning) — a ROM whose `Data` attribute is empty.
+
+### Expected output
+
+- `tier1_minimal/register_test.dig`: clean.
+- A Register with unwired `C` or `en`: 1 error of the matching kind.
+
+### How to test manually
+
+```bash
+uv run pytest tests/test_analyzer_sequential.py
+```

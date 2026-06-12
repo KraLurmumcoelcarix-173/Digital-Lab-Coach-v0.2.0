@@ -16,10 +16,10 @@ Active development. No release yet.
 |---|---|
 | `dlc/parser/` | Reads `.dig` XML into structured Python objects: components, wires, nets, signal-flow graph. 
 | `dlc/facts/` | Extracts a JSON-serializable bundle of facts the LLM and deterministic checkers consume: inventory, per-net widths, per-component topology, structural bug list.
-| `dlc/testing/` | Reads each Testcase's embedded test rows out of the `.dig`, parses Digital's CLI output, and optionally runs Digital one row at a time to pinpoint which specific rows fail. 
-| `dlc/analyzer/` | Deterministic checkers — wire completeness, bit widths, combinational loops, interface conformance, sequential timing. 
-| `dlc/llm/` | LLM client wrapper and versioned prompts for conceptual explanation (Layer 2) and strategic debugging (Layer 3). 
-| `dlc/evaluator/` | Benchmark harness that scores feedback quality against the 30-bug circuit set. 
+| `dlc/testing/` | Reads each Testcase's embedded test rows out of the `.dig`, parses Digital's CLI output, and pinpoints which specific rows fail — one fast `CLI test -verbose` call per file (with expected-vs-found cells per failing row), falling back to cumulative one-row-at-a-time runs when the fast mapping can't be trusted. 
+| `dlc/analyzer/` | Deterministic checkers — wire completeness, bit widths, combinational loops, interface conformance, sequential timing. Shallow (top circuit) and deep (whole subcircuit tree) variants. 
+| `dlc/llm/` | LLM client wrapper and versioned prompts for conceptual explanation + credibility grading (Layer 2) and strategic debugging (Layer 3). 
+| `dlc/evaluator/` | Layer-2 research harness: model-competition benchmark (generate + grade per cell), grader selection, and Pareto/cost plots. All outputs write outside the repo. 
 | `dlc/telemetry/` | Per-interaction logging to a local SQLite database. 
 | `dlc/cli/` | Command-line entrypoint that wires the layers together for student use. 
 | `prompts/` | Versioned LLM prompt templates — one file per prompt variant, consumed by `dlc/llm/`. 
@@ -30,10 +30,12 @@ Active development. No release yet.
 
 ## Temp Web testing
 
-By May 2026, The Layer 1 + Layer 2 demo runs as a local web app.
+The Layer 1 + Layer 2 demo runs as a local web app (since May 2026).
 Open it in a browser, point it at one or more `.dig` files, and
-you get the interactive graph, structural-issue verlay, per-row 
-test runner, component library, and the Layer 2 conceptual coach.
+you get the interactive graph, structural-issue overlay (including
+issues nested inside subcircuits), per-row test runner, a one-click
+"Test all" sweep across every uploaded file, component library, and
+the Layer 2 conceptual coach.
 
 Try the early web version by going over developer setup and running 
 the command below:

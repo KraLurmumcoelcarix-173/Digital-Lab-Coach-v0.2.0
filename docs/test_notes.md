@@ -335,10 +335,49 @@ for spec in extract_test_specs(circuit):
 "
 ```
 
-### Function 4: per-row vs overall — two manual test modes
+### Function 4: per-row vs overall — three manual test modes
 
-DLC offers two ways to check a circuit's testcases. Use whichever
+DLC offers three ways to check a circuit's testcases. Use whichever
 the situation calls for.
+
+#### Mode C — fast per-row (the default; one subprocess total)
+
+One `CLI test -verbose` invocation for the whole file. Digital prints
+its own value table under each failed testcase (one line per executed
+row, mismatched cells as `E: expected / F: found` — see
+`digital_notes.md` § CLI Mode), and the runner maps table line i onto
+spec row i. Returns every row's pass/fail PLUS the exact
+expected-vs-found cells per failing row (`PerRowResult.mismatches`).
+Falls back to Mode B per testcase when the 1:1 mapping can't be
+trusted (unexpanded loop expressions, malformed rows, table anomaly).
+
+```python
+uv run python -c "
+from dlc.parser.dig_parser import parse_dig_file
+from dlc.testing.spec import extract_test_specs
+from dlc.testing.runner import per_file_run_fast, find_digital_jar
+
+TARGET_DIG = 'data/sample_circuits/30_bug_benchmark/bug4_missing_pipeline/Missing_pipeline.dig'  # your .dig
+
+circuit = parse_dig_file(TARGET_DIG)
+specs = [s for s in extract_test_specs(circuit) if s.rows]
+results, fallback = per_file_run_fast(specs, TARGET_DIG, jar_path=find_digital_jar())
+for name, rows in results.items():
+    print(f'Testcase {name!r}:')
+    for r in rows:
+        line = f'  [{r.status:>6}] row {r.row_index}'
+        if r.mismatches:
+            line += '  ' + ', '.join(
+                f\"{m['column']}: expected {m['expected']} got {m['found']}\"
+            for m in r.mismatches)
+        print(line)
+print('fallback needed for:', [s.name for s in fallback])
+"
+```
+
+Wallclock: one JVM startup (~1 s) regardless of row count.
+`per_row_run_auto(spec, path)` wraps the fast-then-fallback policy for
+a single testcase.
 
 #### Mode A — overall pass/fail (fast)
 
@@ -363,10 +402,13 @@ for tc in run.testcases:
 
 Wallclock: 1–3 seconds total.
 
-#### Mode B — cumulative per-row (precise, N subprocesses)
+#### Mode B — cumulative per-row (reference + fallback, N subprocesses)
 
 One Digital invocation per row, with each prefix containing rows 0..K
-so state accumulates correctly. Returns each row's individual pass/fail.
+so state accumulates correctly. Returns each row's individual pass/fail
+(inferred from the failure-percentage delta between prefixes). Kept as
+the reference implementation Mode C is validated against, and as Mode
+C's automatic fallback.
 
 ```python
 uv run python -c "
@@ -399,8 +441,12 @@ Wallclock: roughly N × JVM-startup, roughly N seconds. Takes minutes for files 
 
 | Need | Use | Wallclock |
 |---|---|:-:|
-| Combinational circuit, quick check | Mode A | fast |
-| Stateful circuit, debugging a regression | Mode B | slower but correct and feeds per row result to LLM |
+| Per-row results + expected-vs-found cells (any circuit, incl. stateful) | Mode C | ~1 s/file |
+| Overall pass/fail only | Mode A | ~1 s/file |
+| Verifying Mode C's mapping, or specs Mode C can't trust (unexpanded loops / malformed rows) | Mode B | ~1 s/row |
+
+The web UI's per-row runner and the "Test all" toolbar button both use
+Mode C (per-spec fallback to Mode B happens automatically).
 ---
 
 
@@ -431,9 +477,21 @@ Wallclock: roughly N × JVM-startup, roughly N seconds. Takes minutes for files 
 | `test_per_row_run_cumulative_all_pass` | Cumulative runner regressed on the all-pass path. | `tests/test_testing_runner.py` |
 | `test_per_row_run_cumulative_isolates_failing_row` | Middle-row failure no longer pinpointed via the percentage-delta inference. | `tests/test_testing_runner.py` |
 | `test_per_row_run_cumulative_detects_multiple_failures` | Multi-failure case (bug1's two FAIL rows) no longer attributed correctly. | `tests/test_testing_runner.py` |
+| `test_verbose_parse_*` (failed table / passed / two testcases / spaced name / tc error / log noise) | `CLI test -verbose` value-table parsing broke; the fast per-row path loses its source. | `tests/test_testing_fast_runner.py` |
+| `test_map_section_*` | Table-line → spec-row 1:1 mapping (or its refuse-and-fallback guard) regressed. | `tests/test_testing_fast_runner.py` |
+| `test_fast_equals_cumulative_on_30_bug_circuit` | Fast results no longer match the cumulative reference (issue #11 acceptance; needs `DIGITAL_JAR`). | `tests/test_testing_fast_runner.py` |
 | `test_prompt_for_jar_path_saves_when_user_picks_file` | First-run tkinter dialog → config-save flow broken; students would re-prompt every run. | `tests/test_testing_config.py` |
 | `test_set_digital_jar_path_writes_config` | The "set once via Python" path doesn't persist. | `tests/test_testing_config.py` |
 
 
 ## When you add a new test
 
+1. One test file per source module (`tests/test_<package>_<module>.py`);
+   keep fixtures inline when they're small captured texts (see
+   `test_testing_fast_runner.py`) and in `data/sample_circuits/` when
+   they're circuits.
+2. Tests that shell out to Digital must skip cleanly when the jar is
+   absent: gate on `DIGITAL_JAR`/`find_digital_jar()` with
+   `pytest.mark.skipif` so CI and fresh clones stay green.
+3. Add a row to the "Key tests" table above saying what a failure of
+   the new test means.

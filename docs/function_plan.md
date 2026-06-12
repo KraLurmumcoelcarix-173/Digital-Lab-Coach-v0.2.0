@@ -32,8 +32,8 @@
 
 | # | Name | Status |
 |---|---|:-:|
-| F14 | Failed-test interpreter | Done |
-| F15 | Test-writing coach | Done |
+| F14 | Failed-test interpreter | Data side done (fast per-row runner: failing rows + expected-vs-found cells); LLM side TBD (`/api/llm/debug` coordinator + hypothesis cards) |
+| F15 | Test-writing coach | TBD |
 | F16 | Signal-flow narrator | TBD |
 
 ## Research infrastructure
@@ -42,7 +42,7 @@
 |---|---|:-:|
 | F17 | UI design | Ongoing |
 | F18 | Ablation condition controller | TBD |
-| F19 | Telemetry logger | TBD |
+| F19 | Telemetry logger | TBD (frontend event log exists; SQLite sink TBD) |
 | F20 | Digital source-code dig (Path-3 plugin viability) | TBD |
-| F21 | Evaluation harness (30-bug benchmark, rubric scoring) | TBD |
+| F21 | Evaluation harness | L2 benchmark harness done (`dlc/evaluator/`: 6-model competition, grader selection, Pareto plots) — awaiting the run; 30-bug L1/L3 ablation harness TBD |
 | F22 | CLI interface | TBD |

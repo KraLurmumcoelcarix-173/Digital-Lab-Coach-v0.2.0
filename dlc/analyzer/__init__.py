@@ -36,7 +36,15 @@ def check_all_l1(circuit):
     out.extend(check_sequential(circuit, netlist=netlist))
     return out
 
-def check_all_l1_deep(circuit, _chain=None):
+def check_all_l1_deep(circuit, _chain=None, _top_instance_idx=None):
+    """Run every L1 checker on `circuit` AND every resolved subcircuit.
+
+    Nested issues are tagged so the web UI can both list and highlight
+    them: `scope` carries the file breadcrumb, the title is prefixed
+    with it, `child_component_indices` keeps the indices valid inside
+    the child circuit, and `component_indices` is remapped to the
+    top-level subcircuit-instance component the issue lives under.
+    """
     if _chain is None:
         _chain = []
     out = check_all_l1(circuit)
@@ -44,11 +52,26 @@ def check_all_l1_deep(circuit, _chain=None):
         breadcrumb = " > ".join(_chain)
         for i in out.issues:
             i.title = f"[{breadcrumb}] {i.title}"
+            i.scope = breadcrumb
+            i.child_component_indices = list(i.component_indices)
+            i.component_indices = (
+                [_top_instance_idx] if _top_instance_idx is not None else []
+            )
     for sub_ref in circuit.subcircuits:
         if sub_ref.child_circuit is None:
             continue
+        if _top_instance_idx is None:
+            # First hop down: remember which TOP-level component this
+            # subtree hangs off, for graph highlighting.
+            inst_idx = next(
+                (k for k, comp in enumerate(circuit.components)
+                 if comp is sub_ref.parent_component),
+                None,
+            )
+        else:
+            inst_idx = _top_instance_idx
         child_issues = check_all_l1_deep(
-            sub_ref.child_circuit, _chain + [sub_ref.reference]
+            sub_ref.child_circuit, _chain + [sub_ref.reference], inst_idx,
         )
         out.extend(child_issues)
     return out

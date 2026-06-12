@@ -170,9 +170,45 @@ all transistor-level elements, FSM elements, FPGA-board-specific blocks, Verilog
 
 ## CLI Mode (what the autograder uses)
 
-- Command: `java -cp Digital.jar CLI test -circ FILE.dig`
+- Command: `java -cp Digital.jar CLI test -circ FILE.dig [-verbose]`
 - Output format: `Test: passed` or `Test: failed (N%)` per test case
-- Exit codes:
+- Exit codes (verified against Digital v0.31):
+  - `0` — every testcase passed
+  - `1` — at least one testcase failed OR reported a testcase-level
+    error (e.g. `name: Test signal Qx not found in the circuit!`)
+  - `200` — execution error before testing (e.g. circuit file not found)
+- A failing run ends with the line `Tests have failed.`
+
+### `-verbose` value table (the fast per-row source)
+
+With `-verbose`, every FAILED testcase's result line is followed by
+Digital's own value table:
+
+```
+this_is_a_test: failed (20%)
+A B C D load Clock Fa Fb Fc Fd Fe Ff Fg
+0 0 0 0 0 0 1 1 1 1 1 1 0
+1 1 1 1 0 0 1 0 1 1 0 1 E: 0 / F: 1
+...
+```
+
+Facts the fast runner (`dlc/testing/runner.py`) relies on, all
+verified empirically:
+
+- First table line = the testcase's header names, space-separated.
+- One table line per EXECUTED row, in execution order. Digital
+  expands `loop(N, K) … end loop` blocks itself — the same expansion
+  DLC's TestSpec performs — so table line *i* ↔ `spec.rows[i]`.
+- A row with a `C` clock token still yields exactly ONE table line
+  (the clock column echoes the post-pulse value, e.g. `0`).
+- A failing row renders each mismatched output cell as
+  `E: <expected> / F: <found>`; passing rows echo plain values
+  (formats vary: `1E`, `0x19`, `FFFFFFE0`...). "Row failed" ==
+  "row contains an E:/F: cell".
+- Passed testcases print NO table (nothing to print): a passed
+  result line means every row passed.
+- Testcase labels with spaces print in full (`Register File Test:
+  failed (1%)`); a missing label prints as `unnamed`.
 
 ## Subcircuit Resolution
 

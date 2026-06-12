@@ -67,3 +67,30 @@ def test_check_all_l1_deep_surfaces_child_bug_with_breadcrumb():
     issues = check_all_l1_deep(parent)
     child_origin = [i for i in issues.issues if "[child.dig]" in i.title]
     assert len(child_origin) >= 1
+
+def test_check_all_l1_deep_scopes_and_remaps_nested_issues():
+    """Nested issues carry their breadcrumb in `scope`, keep child
+    indices in `child_component_indices`, and point
+    `component_indices` at the TOP-level instance so the web overlay
+    can highlight the right node."""
+    from pathlib import Path
+    from dlc.analyzer import check_all_l1_deep
+    from dlc.parser.dig_parser import parse_dig_file
+
+    top_path = (
+        Path(__file__).parent.parent / "data" / "sample_circuits"
+        / "tier2_bug" / "L1_deep_check" / "L1_deep_top.dig"
+    )
+    top = parse_dig_file(str(top_path))
+    issues = check_all_l1_deep(top).issues
+    nested = [i for i in issues if i.scope]
+    assert nested, "deep check should surface the nested bugs"
+
+    inst_idx = next(
+        k for k, comp in enumerate(top.components)
+        if comp.element_name.endswith(".dig")
+    )
+    for i in nested:
+        assert i.scope.startswith("L1_deep_middle.dig")
+        assert i.component_indices == [inst_idx]
+        assert i.title.startswith(f"[{i.scope}]")

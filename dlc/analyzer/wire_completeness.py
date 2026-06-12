@@ -34,6 +34,13 @@ class Issue:
     location: tuple[int, int] | None = None
     suggested_fix: str | None = None
     net_id: int | None = None
+    # Deep-check provenance. scope is the subcircuit breadcrumb
+    # ("alu.dig > add-sub.dig"), None for top-level issues. For a
+    # nested issue, component_indices is remapped to the TOP-level
+    # subcircuit-instance component (so UI highlighting works on the
+    # top graph) and the original child-circuit indices move here.
+    scope: str | None = None
+    child_component_indices: list[int] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         d = asdict(self)
